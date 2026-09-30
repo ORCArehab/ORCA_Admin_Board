@@ -34,10 +34,16 @@ export function normalizeFreeText(text: string): string {
   return out.join(" ") || "…";
 }
 
-/** Value safe to include in API responses / logs: strings are normalized, others pass through. */
-export function safeCellValue(v: CellValue | undefined): string | number | boolean | null {
+/**
+ * Value safe to include in API responses, logs and reports. Raw cell contents never pass:
+ * strings become a normalized pattern and numbers become "<n>" (a number in the wrong
+ * column could be an identifier). Booleans (checkbox states) pass through.
+ */
+export function safeCellValue(v: CellValue | undefined): string | boolean | null {
   if (v === undefined || v === null) return null;
-  return typeof v === "string" ? normalizeFreeText(v) : v;
+  if (typeof v === "string") return normalizeFreeText(v);
+  if (typeof v === "number") return "<n>";
+  return v;
 }
 
 export interface StatusTextPatternCount {

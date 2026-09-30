@@ -66,3 +66,12 @@ describe("ProviderDashboardService", () => {
     expect(err).toMatchObject({ statusCode: 502, code: "SOURCE_ACCESS_DENIED" });
   });
 });
+
+describe("status coverage metadata", () => {
+  it("tells the frontend which completion rates are lower bounds", () => {
+    const d = buildProviderDashboard(trackerSnapshot(), trackerConfig(), { today: TODAY, timezone: "UTC", sourceLabel: "t" });
+    expect(d.meta.statusCoverage).toMatchObject({ unknownStatusNotes: 1, providersWithUnknownStatus: ["Jane Doe"] });
+    expect(d.meta.statusCoverage.expectedNotes).toBe(d.meta.statusCoverage.classifiedNotes + d.meta.statusCoverage.unknownStatusNotes);
+    expect(d.meta.definitions.completionRate).toMatch(/lower bound/);
+  });
+});

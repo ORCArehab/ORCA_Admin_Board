@@ -13,7 +13,15 @@ export interface ProviderMetrics {
   outstandingNotes: number;
   /** SUM(TOTAL) for rows whose upload status is blank/unrecognized (neither completed nor outstanding). */
   unknownStatusNotes: number;
-  /** completed / expected × 100, one decimal; null when expected = 0. */
+  /** completed + outstanding: notes whose upload status is an explicit TRUE/FALSE. */
+  classifiedNotes: number;
+  /** classified / expected × 100, one decimal; null when expected = 0. Below 100 means some notes have unknown status. */
+  statusCoveragePercent: number | null;
+  /**
+   * completed / expected × 100, one decimal; null when expected = 0.
+   * Unknown-status notes stay in the denominator, so when statusCoveragePercent < 100
+   * this is a lower bound (unknown notes are neither counted as completed nor outstanding).
+   */
   completionRate: number | null;
   /** Number of outstanding rows/batches. */
   outstandingBatches: number;
@@ -30,6 +38,8 @@ export interface ProviderMetrics {
   facesheetBacklog: number;
 }
 
+const percent = (part: number, whole: number): number => Math.round((part / whole) * 1000) / 10;
+
 function emptyMetrics(name: string): ProviderMetrics {
   return {
     name,
@@ -37,6 +47,8 @@ function emptyMetrics(name: string): ProviderMetrics {
     completedNotes: 0,
     outstandingNotes: 0,
     unknownStatusNotes: 0,
+    classifiedNotes: 0,
+    statusCoveragePercent: null,
     completionRate: null,
     outstandingBatches: 0,
     oldestOutstandingDays: null,
@@ -76,7 +88,11 @@ export function computeMetricsForRows(name: string, rows: ProviderRow[], today: 
     }
   }
 
-  if (m.expectedNotes > 0) m.completionRate = Math.round((m.completedNotes / m.expectedNotes) * 1000) / 10;
+  m.classifiedNotes = m.completedNotes + m.outstandingNotes;
+  if (m.expectedNotes > 0) {
+    m.completionRate = percent(m.completedNotes, m.expectedNotes);
+    m.statusCoveragePercent = percent(m.classifiedNotes, m.expectedNotes);
+  }
   if (m.oldestOutstandingVisitDate) m.oldestOutstandingDays = Math.max(0, daysBetween(m.oldestOutstandingVisitDate, today));
   return m;
 }

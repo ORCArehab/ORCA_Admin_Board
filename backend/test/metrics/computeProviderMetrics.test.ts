@@ -35,6 +35,8 @@ describe("provider metrics", () => {
       completedNotes: 8, // rows 3, 8
       outstandingNotes: 15, // rows 4, 5, 9, 14
       unknownStatusNotes: 1, // row 11 "Pending"
+      classifiedNotes: 23, // completed + outstanding
+      statusCoveragePercent: 95.8, // 23 / 24
       completionRate: 33.3,
       outstandingBatches: 4,
       oldestOutstandingDays: 19, // 2026-09-10 (rows 9 and 14 have no usable date)
@@ -44,6 +46,15 @@ describe("provider metrics", () => {
       billingSheetBacklog: 4, // rows 4, 5, 9, 14
       facesheetBacklog: 3, // rows 4, 9, 14 (row 5 facesheet blank = not tracked)
     });
+  });
+
+  it("keeps completed, outstanding and unknown separate (expected = classified + unknown)", () => {
+    const rows = [row({ total: 4, uploadedNotes: "checked" }), row({ total: 3 }), row({ total: 5, uploadedNotes: "unrecognized" })];
+    const m = computeMetricsForRows("P", rows, TODAY);
+    expect(m).toMatchObject({ completedNotes: 4, outstandingNotes: 3, unknownStatusNotes: 5, classifiedNotes: 7, expectedNotes: 12 });
+    expect(m.expectedNotes).toBe(m.classifiedNotes + m.unknownStatusNotes);
+    expect(m.statusCoveragePercent).toBe(58.3);
+    expect(m.completionRate).toBe(33.3); // 4 / 12: unknown stays in the denominator
   });
 
   it("returns completionRate null when nothing is expected", () => {

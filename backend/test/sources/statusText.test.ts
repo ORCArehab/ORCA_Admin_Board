@@ -11,8 +11,9 @@ describe("free-text normalization", () => {
     expect(normalizeFreeText("Zyx")).toBe("…");
   });
 
-  it("passes non-strings through unchanged", () => {
-    expect(safeCellValue(5)).toBe(5);
+  it("masks numbers and keeps checkbox booleans", () => {
+    expect(safeCellValue(5)).toBe("<n>");
+    expect(safeCellValue(true)).toBe(true);
     expect(safeCellValue(null)).toBeNull();
   });
 

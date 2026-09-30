@@ -146,7 +146,7 @@ export function parseProviderTab(input: ParseTabInput): ParseTabResult {
     const facilities = isBlank(facilitiesRaw) ? null : String(facilitiesRaw).trim();
     const multiFacility = !!facilities && input.multiFacilitySeparators.some((sep) => facilities.includes(sep));
     if (multiFacility) {
-      flag("MULTI_FACILITY", "info", "facilities", "Row combines several facilities under one TOTAL; treated as an unallocated multi-facility batch.", facilities);
+      flag("MULTI_FACILITY", "info", "facilities", "Row combines several facilities under one TOTAL; treated as an unallocated multi-facility batch.");
     }
 
     rows.push({

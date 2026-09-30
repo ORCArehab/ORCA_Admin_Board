@@ -3,16 +3,17 @@
  *
  *   npm run check:drive
  *
- * Confirms the service account can see ORCA's Shared Drive(s) through the Drive API
- * and prints a non-sensitive summary: drive names/IDs and file/folder counts by type.
- * File names are never requested or printed; file contents are never downloaded.
+ * Confirms the service account can see ORCA's Shared Drive(s) through the Drive API.
+ * Prints drive names/IDs and the file types found in ONE small page of results. It never
+ * enumerates the whole drive (future RAG starts from allowlisted folders, not a crawl),
+ * never requests or prints file names, and never downloads contents.
  */
 import { loadEnv } from "../src/config/env.js";
 import { createGoogleAuth, DRIVE_READONLY_SCOPE } from "../src/integrations/google/auth.js";
 import { GoogleDriveReader } from "../src/integrations/google/drive.js";
 
-/** Safety cap so the check never turns into a crawl of a very large drive. */
-const MAX_ITEMS = 20_000;
+/** One page only: enough to prove access without enumerating the drive. */
+const SAMPLE_SIZE = 50;
 
 function typeLabel(mime: string): string {
   const known: Record<string, string> = {
@@ -51,18 +52,12 @@ async function main() {
   }
 
   for (const d of targets) {
+    // Request mimeType only — no names, no contents — and a single page.
+    const page = await drive.listFiles({ driveId: d.id, pageSize: SAMPLE_SIZE, fileFields: "mimeType" });
     const counts: Record<string, number> = {};
-    let total = 0;
-    let pageToken: string | undefined;
-    do {
-      // Request mimeType only — no names, no contents.
-      const page = await drive.listFiles({ driveId: d.id, pageToken, fileFields: "mimeType" });
-      for (const f of page.files) counts[typeLabel(f.mimeType)] = (counts[typeLabel(f.mimeType)] ?? 0) + 1;
-      total += page.files.length;
-      pageToken = page.nextPageToken;
-    } while (pageToken && total < MAX_ITEMS);
+    for (const f of page.files) counts[typeLabel(f.mimeType)] = (counts[typeLabel(f.mimeType)] ?? 0) + 1;
 
-    console.log(`\n"${d.name}": ${total}${pageToken ? "+ (stopped at safety cap)" : ""} items`);
+    console.log(`\n"${d.name}": access OK — sampled ${page.files.length} item(s)${page.nextPageToken ? " (more exist; not enumerated)" : ""}`);
     for (const [label, n] of Object.entries(counts).sort((a, b) => b[1] - a[1])) console.log(`  ${label.padEnd(16)} ${n}`);
   }
 }

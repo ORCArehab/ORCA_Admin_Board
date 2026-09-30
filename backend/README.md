@@ -179,7 +179,10 @@ Google Workspace permissions      service account = Viewer on the ORCA Shared Dr
 - **Scopes:** Sheets uses `spreadsheets.readonly`. Drive uses `drive.readonly`, the narrowest scope that can enumerate Shared Drives (`drives.list` rejects `drive.metadata.readonly`). No code downloads file contents yet.
 - **Not built yet:** the RAG allowlist, indexing, retrieval and `/api/ai/chat`.
 
-`npm run check:drive` confirms Shared Drive → service account → Drive API connectivity. It prints drive names/IDs and item counts by type only, never file names or contents, and stops at a safety cap.
+- **Retrieval starts from explicitly approved folders/files.** Service-account access to the Shared Drive never automatically makes a document part of RAG, and the Shared Drive is never crawled.
+- The Shared Drive ID lives only in environment configuration (`ORCA_SHARED_DRIVE_ID`).
+
+`npm run check:drive` confirms Shared Drive → service account → Drive API connectivity. It lists the visible Shared Drives and samples one small page of file *types* to prove access. It never enumerates the drive, never requests file names, and never downloads contents.
 
 ## Provider metrics (V1)
 
@@ -189,7 +192,9 @@ Google Workspace permissions      service account = Viewer on the ORCA Shared Dr
 | `completedNotes` | SUM(TOTAL) where UPLOADED NOTES = TRUE |
 | `outstandingNotes` | SUM(TOTAL) where UPLOADED NOTES = FALSE and TOTAL > 0 |
 | `unknownStatusNotes` | SUM(TOTAL) where UPLOADED NOTES is blank or unrecognized (flagged) |
-| `completionRate` | completed ÷ expected × 100 (1 decimal); `null` when expected = 0 |
+| `classifiedNotes` | completed + outstanding (explicit TRUE/FALSE status); `expectedNotes = classifiedNotes + unknownStatusNotes` |
+| `statusCoveragePercent` | classified ÷ expected × 100; below 100 means some notes have unknown status |
+| `completionRate` | completed ÷ expected × 100 (1 decimal); `null` when expected = 0. Unknown notes stay in the denominator, so it's a **lower bound** when `statusCoveragePercent` < 100 |
 | `outstandingBatches` | number of outstanding rows |
 | `oldestOutstandingDays` / `oldestOutstandingVisitDate` | today − oldest VISIT DATE among outstanding rows; unreadable dates are excluded |
 | `consults` / `followUps` | SUM(CONSULT NOTES) / SUM(PROGRESS NOTES) |
@@ -200,6 +205,8 @@ Google Workspace permissions      service account = Viewer on the ORCA Shared Dr
 
 `meta.completionBasis` is `"row-level-upload-flag"`: UPLOADED NOTES is treated as a per-row/batch checkbox. That interpretation lives only in `metrics/provider/completionModel.ts`. Backlog rules live only in `metrics/provider/backlogRules.ts` and are described in `meta.backlogBasis`.
 
+Completed, outstanding and unknown notes are always reported separately and never merged. `meta.statusCoverage` gives dataset totals and `providersWithUnknownStatus`, and `meta.definitions` has short texts the frontend can show next to percentages.
+
 Providers are sorted by outstanding notes, then oldest outstanding age.
 
 Response shape:
@@ -207,6 +214,7 @@ Response shape:
 ```json
 {
   "meta": { "asOfDate": "2026-09-29", "timezone": "...", "completionBasis": "row-level-upload-flag",
+            "definitions": { ... }, "statusCoverage": { "classifiedPercent": 85.4, "providersWithUnknownStatus": [ ... ] },
             "backlogBasis": { ... }, "source": { ... }, "tabs": [ ... ], "cached": false },
   "providers": [ { "name": "...", "expectedNotes": 0, "completedNotes": 0, "...": "..." } ],
   "dataQuality": { "summary": { "TOTAL_MISMATCH": 3 }, "structuralIssues": [ ... ], "rowIssues": [ ... ] }
@@ -237,6 +245,15 @@ Questionable rows are **flagged, never repaired**. A row is left out only of the
 
 Blank rows, template rows (unchecked boxes only), repeated header rows and month-label rows are skipped without warnings.
 
+### Privacy contract
+
+Raw cell contents never appear in API responses, warnings, logs, discovery output or errors, unless explicitly designed and authorized for that purpose:
+
+- Warning `value`s and `dataQuality.statusTextPatterns` contain only normalized patterns: strings become workflow keywords plus `<date>` / `<n>` / `…`, numbers become `<n>`, and checkbox booleans pass through.
+- MULTI_FACILITY warnings don't echo the facility cell.
+- The discovery report shows column labels from the detected header row only (labels over 40 characters are masked). This is its purpose and the one authorized exception. Title rows, data rows, facilities and remarks are never printed.
+- `test/privacy.test.ts` puts marker text, random free text and identifier-like numbers into every kind of cell, and fails if any of it reaches the payload or the discovery report.
+
 REMARKS is never read. Rows with no facility and no non-zero note count (pre-filled future dates, formula TOTAL = 0, pre-placed unchecked boxes) are template filler and are skipped.
 
 ### Free-text statuses
@@ -247,9 +264,9 @@ Some UPLOADED NOTES / Billing sheet cells contain text instead of a checkbox. Th
 
 Validated against the real tracker: every provider matches an independent recomputation from raw cells, on every metric. Open questions for ORCA:
 
-1. **Free-text upload statuses:** agree normalization rules (e.g. what "… <date> uploaded" means). Until then they stay under `unknownStatusNotes`.
+1. **Free-text upload statuses:** agree normalization rules (e.g. what "… <date> uploaded" means). Until then they stay under `unknownStatusNotes`, and no completion is inferred from words like uploaded/completed/pending.
 2. **Facesheet rule:** the data suggests facesheets are expected only for rows with consults. Not applied until confirmed; the rule lives in `isFacesheetExpected` (`metrics/provider/backlogRules.ts`).
-3. **Old unchecked batches:** some tabs have months of batches with the upload box unchecked. The dashboard reports the source faithfully; ORCA must confirm whether each is real backlog or stale tracking.
+3. **Old unchecked batches:** some tabs have months of batches with the upload box unchecked. The dashboard reports the source faithfully and applies no stale-data correction; ORCA must confirm whether each is real backlog or stale tracking. The UI can later separate source-data warnings from operational backlog.
 4. **Unidentified tabs:** unmapped tabs stay flagged (`UNMAPPED_TAB`) until ORCA identifies the provider.
 5. **Free-text billing-sheet cells** are not counted as billing backlog.
 
