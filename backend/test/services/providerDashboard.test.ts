@@ -68,10 +68,13 @@ describe("ProviderDashboardService", () => {
 });
 
 describe("status coverage metadata", () => {
-  it("tells the frontend which completion rates are lower bounds", () => {
+  it("tells the frontend which completion rates have incomplete status coverage", () => {
     const d = buildProviderDashboard(trackerSnapshot(), trackerConfig(), { today: TODAY, timezone: "UTC", sourceLabel: "t" });
     expect(d.meta.statusCoverage).toMatchObject({ unknownStatusNotes: 1, providersWithUnknownStatus: ["Jane Doe"] });
     expect(d.meta.statusCoverage.expectedNotes).toBe(d.meta.statusCoverage.classifiedNotes + d.meta.statusCoverage.unknownStatusNotes);
-    expect(d.meta.definitions.completionRate).toMatch(/lower bound/);
+    expect(d.meta.definitions.completionRate).toMatch(/known status/);
+    expect(d.meta.definitions.statusCoveragePercent).toMatch(/expected workload/);
+    const jane = d.providers.find((p) => p.name === "Jane Doe")!;
+    expect(jane).toMatchObject({ completionRate: 34.8, statusCoveragePercent: 95.8 });
   });
 });

@@ -33,7 +33,7 @@ export interface ProviderDashboard {
       classifiedNotes: number;
       unknownStatusNotes: number;
       classifiedPercent: number | null;
-      /** Providers whose completionRate is a lower bound because some notes have unknown status. */
+      /** Providers with unknown-status notes: their completionRate covers only part of the expected workload. */
       providersWithUnknownStatus: string[];
     };
     backlogBasis: typeof BACKLOG_BASIS;
@@ -52,8 +52,10 @@ export interface ProviderDashboard {
 
 export const METRIC_DEFINITIONS = {
   completionRate:
-    "completedNotes / expectedNotes. Notes with unknown upload status (blank or free text) stay in the denominator, so this is a lower bound when statusCoveragePercent < 100.",
-  statusCoveragePercent: "Share of expected notes whose UPLOADED NOTES cell is an explicit TRUE/FALSE checkbox.",
+    "Completion rate describes notes with a known status: completedNotes / classifiedNotes (completed + outstanding). Unknown-status notes are not treated as incomplete. Null when no notes have a known status.",
+  statusCoveragePercent:
+    "Status coverage describes how much of the expected workload has a known status: classifiedNotes / expectedNotes, where known means UPLOADED NOTES is an explicit TRUE/FALSE checkbox.",
+  classifiedNotes: "completedNotes + outstandingNotes. expectedNotes = classifiedNotes + unknownStatusNotes.",
   unknownStatusNotes: "Notes whose UPLOADED NOTES cell is blank or free text. Not counted as completed or outstanding.",
   outstandingBatches: "Rows with TOTAL > 0 and UPLOADED NOTES = FALSE.",
 } as const;

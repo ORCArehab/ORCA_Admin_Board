@@ -193,8 +193,8 @@ Google Workspace permissions      service account = Viewer on the ORCA Shared Dr
 | `outstandingNotes` | SUM(TOTAL) where UPLOADED NOTES = FALSE and TOTAL > 0 |
 | `unknownStatusNotes` | SUM(TOTAL) where UPLOADED NOTES is blank or unrecognized (flagged) |
 | `classifiedNotes` | completed + outstanding (explicit TRUE/FALSE status); `expectedNotes = classifiedNotes + unknownStatusNotes` |
-| `statusCoveragePercent` | classified ÷ expected × 100; below 100 means some notes have unknown status |
-| `completionRate` | completed ÷ expected × 100 (1 decimal); `null` when expected = 0. Unknown notes stay in the denominator, so it's a **lower bound** when `statusCoveragePercent` < 100 |
+| `completionRate` | completed ÷ **classified** × 100 (1 decimal); `null` when classified = 0. Describes notes with a known status; unknown notes aren't treated as incomplete |
+| `statusCoveragePercent` | classified ÷ expected × 100; `null` when expected = 0. How much of the expected workload has a known status |
 | `outstandingBatches` | number of outstanding rows |
 | `oldestOutstandingDays` / `oldestOutstandingVisitDate` | today − oldest VISIT DATE among outstanding rows; unreadable dates are excluded |
 | `consults` / `followUps` | SUM(CONSULT NOTES) / SUM(PROGRESS NOTES) |
@@ -205,7 +205,7 @@ Google Workspace permissions      service account = Viewer on the ORCA Shared Dr
 
 `meta.completionBasis` is `"row-level-upload-flag"`: UPLOADED NOTES is treated as a per-row/batch checkbox. That interpretation lives only in `metrics/provider/completionModel.ts`. Backlog rules live only in `metrics/provider/backlogRules.ts` and are described in `meta.backlogBasis`.
 
-Completed, outstanding and unknown notes are always reported separately and never merged. `meta.statusCoverage` gives dataset totals and `providersWithUnknownStatus`, and `meta.definitions` has short texts the frontend can show next to percentages.
+Completed, outstanding and unknown notes are always reported separately and never merged. Always read `completionRate` together with `statusCoveragePercent`: a high completion rate with low coverage describes only a small part of the workload. `meta.statusCoverage` gives dataset totals and `providersWithUnknownStatus`, and `meta.definitions` has short texts the frontend can show next to percentages.
 
 Providers are sorted by outstanding notes, then oldest outstanding age.
 

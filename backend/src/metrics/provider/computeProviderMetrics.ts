@@ -15,12 +15,15 @@ export interface ProviderMetrics {
   unknownStatusNotes: number;
   /** completed + outstanding: notes whose upload status is an explicit TRUE/FALSE. */
   classifiedNotes: number;
-  /** classified / expected × 100, one decimal; null when expected = 0. Below 100 means some notes have unknown status. */
+  /**
+   * classified / expected × 100, one decimal; null when expected = 0.
+   * How much of the expected workload has a known upload status.
+   */
   statusCoveragePercent: number | null;
   /**
-   * completed / expected × 100, one decimal; null when expected = 0.
-   * Unknown-status notes stay in the denominator, so when statusCoveragePercent < 100
-   * this is a lower bound (unknown notes are neither counted as completed nor outstanding).
+   * completed / classified × 100, one decimal; null when classified = 0.
+   * Describes only notes with a known status; unknown-status notes are NOT treated as
+   * incomplete. Read together with statusCoveragePercent.
    */
   completionRate: number | null;
   /** Number of outstanding rows/batches. */
@@ -89,10 +92,8 @@ export function computeMetricsForRows(name: string, rows: ProviderRow[], today: 
   }
 
   m.classifiedNotes = m.completedNotes + m.outstandingNotes;
-  if (m.expectedNotes > 0) {
-    m.completionRate = percent(m.completedNotes, m.expectedNotes);
-    m.statusCoveragePercent = percent(m.classifiedNotes, m.expectedNotes);
-  }
+  if (m.classifiedNotes > 0) m.completionRate = percent(m.completedNotes, m.classifiedNotes);
+  if (m.expectedNotes > 0) m.statusCoveragePercent = percent(m.classifiedNotes, m.expectedNotes);
   if (m.oldestOutstandingVisitDate) m.oldestOutstandingDays = Math.max(0, daysBetween(m.oldestOutstandingVisitDate, today));
   return m;
 }

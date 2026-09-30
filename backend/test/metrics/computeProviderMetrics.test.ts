@@ -37,7 +37,7 @@ describe("provider metrics", () => {
       unknownStatusNotes: 1, // row 11 "Pending"
       classifiedNotes: 23, // completed + outstanding
       statusCoveragePercent: 95.8, // 23 / 24
-      completionRate: 33.3,
+      completionRate: 34.8, // 8 / 23 classified
       outstandingBatches: 4,
       oldestOutstandingDays: 19, // 2026-09-10 (rows 9 and 14 have no usable date)
       oldestOutstandingVisitDate: "2026-09-10",
@@ -54,7 +54,29 @@ describe("provider metrics", () => {
     expect(m).toMatchObject({ completedNotes: 4, outstandingNotes: 3, unknownStatusNotes: 5, classifiedNotes: 7, expectedNotes: 12 });
     expect(m.expectedNotes).toBe(m.classifiedNotes + m.unknownStatusNotes);
     expect(m.statusCoveragePercent).toBe(58.3);
-    expect(m.completionRate).toBe(33.3); // 4 / 12: unknown stays in the denominator
+    expect(m.completionRate).toBe(57.1); // 4 / 7: unknown notes are not treated as incomplete
+  });
+
+  it("computes completion over classified notes and coverage over expected notes", () => {
+    const m = computeMetricsForRows(
+      "P",
+      [row({ total: 80, uploadedNotes: "checked" }), row({ total: 20 }), row({ total: 50, uploadedNotes: "blank" })],
+      TODAY,
+    );
+    expect(m).toMatchObject({
+      completedNotes: 80,
+      outstandingNotes: 20,
+      unknownStatusNotes: 50,
+      classifiedNotes: 100,
+      expectedNotes: 150,
+      completionRate: 80,
+      statusCoveragePercent: 66.7,
+    });
+  });
+
+  it("returns completionRate null (not 0) when no notes have a known status", () => {
+    const m = computeMetricsForRows("P", [row({ total: 50, uploadedNotes: "unrecognized" })], TODAY);
+    expect(m).toMatchObject({ classifiedNotes: 0, expectedNotes: 50, unknownStatusNotes: 50, completionRate: null, statusCoveragePercent: 0 });
   });
 
   it("returns completionRate null when nothing is expected", () => {
