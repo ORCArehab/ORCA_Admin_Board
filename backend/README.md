@@ -37,12 +37,12 @@ gcloud iam service-accounts create orca-dashboard-reader \
 - Grant it **no project IAM roles**. It needs none to read a spreadsheet that has been shared with it.
 - Do **not** create a JSON key unless you truly have to. Cloud Run uses the attached service account directly, and local development uses impersonation (step 4).
 
-### 3. Share only the provider tracker with it
+### 3. Give the service account read access
 
-Open **ORCA-NP/Scribe Tracker 2026** → Share → add
-`orca-dashboard-reader@PROJECT_ID.iam.gserviceaccount.com` as **Viewer**. Untick "Notify people".
+Share **ORCA-NP/Scribe Tracker 2026** with
+`orca-dashboard-reader@PROJECT_ID.iam.gserviceaccount.com` as **Viewer** (untick "Notify people").
 
-Don't share folders or anything else. The service account can only read what is explicitly shared with it, and the app also refuses any spreadsheet ID that isn't configured.
+ORCA has also made the service account a **Viewer of the ORCA Shared Drive**, on purpose, for the future AI/RAG assistant. That is the *outer* permission boundary only. The application still reads only what it is explicitly configured to read (see "Google Workspace access and the RAG boundary"). The provider dashboard reads only the one configured spreadsheet, and the Sheets client refuses any other spreadsheet ID.
 
 **Workspace sharing restrictions:** if ORCA's Workspace blocks sharing outside the organization, sharing with a service account from a personal/outside project will fail. Create the project under ORCA's Google Cloud organization, or ask the Workspace admin to allow it.
 
@@ -68,6 +68,7 @@ cp .env.example .env
 ```
 
 Set `PROVIDER_TRACKER_SPREADSHEET_ID`: the `<ID>` in `https://docs.google.com/spreadsheets/d/<ID>/edit`.
+Optionally set `ORCA_SHARED_DRIVE_ID`; `npm run check:drive` prints it.
 Also confirm `DASHBOARD_TIMEZONE` with ORCA; it decides what counts as "today" when calculating outstanding age.
 
 ### 6. Discover the real tab structure
@@ -81,12 +82,17 @@ This prints **structure only**: tab names and gids, detected header rows, the co
 Use the output to create `config/provider-tracker.json` (gitignored; see `config/provider-tracker.example.json`):
 
 - **`providers`**: map each provider tab to the provider's canonical name. Prefer `"gid:<id>"` keys, which survive tab renames; exact tab titles also work. Shorthand tabs (e.g. `"JD"`) get their real names here. Every mapped tab is treated as *expected*: if it vanishes or loses a required column, the API reports a structural error and marks that provider `"incomplete"`.
-- **`excludeTabs`**: summary tabs whose headers happen to look like provider tabs (e.g. `BILLER`).
+- **`excludeTabs`**: tabs that must never be treated as provider tabs (summary/BILLER, TEMPLATE, daily trackers).
+- **`unmappedTabs`**: `"include"` (default) shows provider-shaped tabs that aren't in `providers` under their tab title, flagged `UNMAPPED_TAB`; `"ignore"` drops them.
+
+Inclusion is decided **only** by this config. Whether a tab is hidden in Google Sheets is shown in `meta.tabs[].hidden` but has no effect: hidden tabs with legitimate work are included by mapping them, and unwanted visible tabs are excluded by listing them.
+
+Canonical names are whatever the config says. Don't invent fuller names; where the sheet only gives a first name, use that. Tabs shared by two providers keep one combined entry (e.g. `"A / B (shared tab)"`), because their totals can't be attributed to either provider.
 - **`columnAliases`**: extra header spellings if a tab uses different column names, e.g. `{ "uploadedNotes": ["NOTES IN EMR"] }`.
 
 Rerun `npm run discover` until every provider tab shows `status: provider` with the right name and there are no unexpected structural issues.
 
-**Please share the discover output** (it contains no patient data). It's needed to confirm two provisional rules (see "Open items" below).
+Free text in status columns appears only as normalized patterns (see "Free-text statuses" below), never verbatim.
 
 ### 7. Run it
 
@@ -128,10 +134,12 @@ src/
   integrations/google/
     auth.ts          the ONLY place Google credentials are obtained (ADC, read-only scope)
     sheets.ts        thin reader: tab metadata + raw values; enforces the spreadsheet allowlist
+    drive.ts         (future RAG) metadata-only, Shared-Drive-aware Drive reader; no content access
   sources/providerTracker/
     columns.ts       header aliases → fields; header-row detection
     discoverTabs.ts  classify tabs by header structure + config (never by position)
     parseRows.ts     raw cells → typed ProviderRow + data-quality issues
+    statusText.ts    privacy-safe normalization of free text (never returned verbatim)
     index.ts         readProviderTracker(snapshot, config, today)
   metrics/provider/
     completionModel.ts        how UPLOADED NOTES maps to completed/outstanding
@@ -141,7 +149,8 @@ src/
   auth/authenticator.ts          admin auth (IAP / disabled), separate from data access
   routes/dashboard/providers.ts  GET /api/dashboard/providers
   app.ts / server.ts             app factory (injected deps) / composition root
-scripts/discover-provider-tabs.ts
+scripts/discover-provider-tabs.ts   structure-only tracker discovery
+scripts/check-drive-access.ts       Shared Drive connectivity check (counts by type; no names/contents)
 ```
 
 Pipeline: Google Sheets → discover provider tabs → normalize columns → parse typed rows → flag data-quality issues → compute metrics → service → route.
@@ -151,6 +160,26 @@ Everything from `sources/` through `metrics/` is pure and tested against `test/f
 **Adding later endpoints** (`/scribes`, `/trends`, `/facilities`, `/audit`, `/api/ai/chat`): add a source key in `config/sources.ts`, a parser under `sources/<name>/`, pure metrics under `metrics/<name>/`, a service, and a route registered inside the authenticated `/api` scope in `app.ts`. None of the provider code needs to change.
 
 ---
+
+## Google Workspace access and the RAG boundary
+
+Decision (2026-09-30): the service account has read-only (Viewer) access to the ORCA Shared Drive. That access does **not** mean the application may ingest, index, retrieve or expose every file.
+
+```
+Google Workspace permissions      service account = Viewer on the ORCA Shared Drive   ← outer security boundary
+  → application RAG allowlist     explicit drives / folders / files approved for AI   ← narrower retrieval boundary
+    → retrieval / indexing        only allowlisted items
+      → OpenAI API                grounded answers from retrieved context
+```
+
+- **The Google permission is the outer boundary; the application allowlist is the retrieval boundary.** Nothing is indexed or sent to OpenAI unless it is on the allowlist.
+- **Always excluded** unless a specific authorized use case says otherwise: credentials/password files, unrelated HR/legal material, infrastructure secrets, and patient/clinical documents. PHI access must be deliberate and scoped.
+- **Structured data stays separate.** Dashboard metrics come from specific configured spreadsheets through the Sheets API (`config/sources.ts`), not from Drive search.
+- **Shared Drives are first-class.** `integrations/google/drive.ts` always passes `supportsAllDrives` / `includeItemsFromAllDrives` and lists inside an explicit `driveId` (`corpora=drive`), optionally within a folder. It doesn't assume My Drive and has no "crawl everything" helper. Discovery for RAG will walk only allowlisted folders.
+- **Scopes:** Sheets uses `spreadsheets.readonly`. Drive uses `drive.readonly`, the narrowest scope that can enumerate Shared Drives (`drives.list` rejects `drive.metadata.readonly`). No code downloads file contents yet.
+- **Not built yet:** the RAG allowlist, indexing, retrieval and `/api/ai/chat`.
+
+`npm run check:drive` confirms Shared Drive → service account → Drive API connectivity. It prints drive names/IDs and item counts by type only, never file names or contents, and stops at a safety cap.
 
 ## Provider metrics (V1)
 
@@ -203,20 +232,30 @@ Questionable rows are **flagged, never repaired**. A row is left out only of the
 | `TOTAL_MISMATCH` | row | TOTAL ≠ CONSULT + PROGRESS; TOTAL still used |
 | `UNEXPECTED_STATUS`, `MISSING_STATUS` | row | upload status unknown → `unknownStatusNotes` |
 | `STATUS_WITHOUT_DATA` | row | checked box on an otherwise empty row |
+| `MISSING_DATE` | row | notes counted, but excluded from outstanding age |
 | `MULTI_FACILITY` | row (info) | several facilities share one TOTAL; never split |
 
 Blank rows, template rows (unchecked boxes only), repeated header rows and month-label rows are skipped without warnings.
 
-REMARKS is never read, and no free-text cell content appears in responses.
+REMARKS is never read. Rows with no facility and no non-zero note count (pre-filled future dates, formula TOTAL = 0, pre-placed unchecked boxes) are template filler and are skipped.
 
-## Open items to confirm against the real sheet
+### Free-text statuses
 
-1. **Facesheet expectation (provisional).** For now, a row with a TRUE/FALSE facesheet cell counts as "facesheet tracked", and a blank cell counts as "not tracked", so it isn't a backlog. If the sheet shows a clearer rule (e.g. facesheets only for consults), change `isFacesheetExpected` in `metrics/provider/backlogRules.ts`.
-2. **Checkbox values.** Status columns are expected to be TRUE/FALSE checkboxes. If `npm run discover` shows other values (dates, "Done", names), the parsing rule needs updating instead of those values being flagged.
-3. **Timezone** for "today".
+Some UPLOADED NOTES / Billing sheet cells contain text instead of a checkbox. They are **not** classified: rows with free-text upload status count toward `unknownStatusNotes`, and free-text billing cells don't count as billing backlog. Warnings and `dataQuality.statusTextPatterns` show only a normalized pattern: workflow words (uploaded, pending, completed, for, upload, …) are kept, dates become `<date>`, numbers `<n>`, and everything else (initials, names) becomes `…`. Example: `"… <date> uploaded"`. Explicit normalization rules will be added after ORCA confirms the workflow.
+
+## Open items
+
+Validated against the real tracker: every provider matches an independent recomputation from raw cells, on every metric. Open questions for ORCA:
+
+1. **Free-text upload statuses:** agree normalization rules (e.g. what "… <date> uploaded" means). Until then they stay under `unknownStatusNotes`.
+2. **Facesheet rule:** the data suggests facesheets are expected only for rows with consults. Not applied until confirmed; the rule lives in `isFacesheetExpected` (`metrics/provider/backlogRules.ts`).
+3. **Old unchecked batches:** some tabs have months of batches with the upload box unchecked. The dashboard reports the source faithfully; ORCA must confirm whether each is real backlog or stale tracking.
+4. **Unidentified tabs:** unmapped tabs stay flagged (`UNMAPPED_TAB`) until ORCA identifies the provider.
+5. **Free-text billing-sheet cells** are not counted as billing backlog.
 
 ## Security notes
 
 - Nothing secret is in source control. `.env`, `config/provider-tracker.json` and key files are gitignored and excluded from Docker builds.
-- Google access is read-only (`spreadsheets.readonly`), limited to spreadsheets explicitly shared with the service account, and further limited by the in-app allowlist.
+- Google access is read-only. The service account can view the ORCA Shared Drive (outer boundary), but the application reads only the configured spreadsheet(s) and will read only allowlisted Drive items for RAG (inner boundary).
+- Free text from cells is never returned verbatim (see "Free-text statuses").
 - Admin authentication (`src/auth`) is independent of Google data access and metric code.

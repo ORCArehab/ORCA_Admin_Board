@@ -40,4 +40,6 @@ export interface ProviderRow {
   /** `null` when the tab has no such column. */
   billingSheet: CheckState | null;
   faceSheet: CheckState | null;
+  /** Normalized, privacy-safe pattern of free text found in a status column (see statusText.ts). */
+  statusTextPatterns?: Partial<Record<"uploadedNotes" | "billingSheet" | "faceSheet", string>>;
 }

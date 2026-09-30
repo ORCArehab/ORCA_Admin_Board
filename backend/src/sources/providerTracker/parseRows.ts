@@ -2,6 +2,7 @@ import type { CellValue } from "../../integrations/google/sheets.js";
 import type { DataQualityIssue } from "../../lib/dataQuality.js";
 import { fromSheetsSerial, parseDateString, type IsoDate } from "../../lib/dates.js";
 import { buildAliasLookup, matchHeaderRow, matchedFieldCount, type HeaderMatch } from "./columns.js";
+import { safeCellValue } from "./statusText.js";
 import type { CheckState, ProviderField, ProviderRow } from "./types.js";
 
 export interface ParseTabInput {
@@ -74,18 +75,7 @@ export function parseProviderTab(input: ParseTabInput): ParseTabResult {
     const flag = (code: string, severity: DataQualityIssue["severity"], column: ProviderField | undefined, message: string, value?: CellValue) =>
       issues.push({ code, severity, scope: "row", tab, sheetId, row: rowNumber, provider, column, message, ...(value !== undefined ? { value } : {}) });
 
-    const content: ProviderField[] = ["visitDate", "facilities", "consultNotes", "progressNotes", "total"];
     const statusFields: ProviderField[] = ["uploadedNotes", "billingSheet", "faceSheet"];
-    const hasContent = content.some((f) => !isBlank(cell(f)));
-
-    if (!hasContent) {
-      // Blank or template row (pre-filled unchecked boxes). A checked box with no data is suspicious.
-      if (statusFields.some((f) => parseCheck(cell(f)) === "checked")) {
-        flag("STATUS_WITHOUT_DATA", "warning", undefined, "Row has a checked status box but no visit date, facility or note counts.");
-      }
-      skippedRows++;
-      continue;
-    }
 
     // Repeated header rows (e.g. one header block per month).
     if (matchedFieldCount(matchHeaderRow(cells, lookup, i)) >= 2) {
@@ -93,24 +83,33 @@ export function parseProviderTab(input: ParseTabInput): ParseTabResult {
       continue;
     }
 
-    // Section label rows: text in the visit-date column only (e.g. "SEPTEMBER").
-    const dateCell = cell("visitDate");
-    const onlyDateText =
-      typeof dateCell === "string" && content.every((f) => f === "visitDate" || isBlank(cell(f))) && parseDate(dateCell).ok === false;
-    if (onlyDateText) {
+    // A row describes work only if it names a facility or has a non-zero/non-numeric note count.
+    // The real tracker pre-fills VISIT DATE for future days, fills TOTAL down as a formula (0),
+    // and pre-places unchecked boxes; such rows (and month-label rows) carry no notes.
+    const isWorkCount = (v: CellValue | undefined) => !isBlank(v) && v !== 0;
+    const hasContent =
+      !isBlank(cell("facilities")) || (["consultNotes", "progressNotes", "total"] as const).some((f) => isWorkCount(cell(f)));
+
+    if (!hasContent) {
+      // A checked box or status text with no facility or note counts is suspicious.
+      if (statusFields.some((f) => ["checked", "unrecognized"].includes(parseCheck(cell(f))))) {
+        flag("STATUS_WITHOUT_DATA", "warning", undefined, "Row has a status value but no facility or note counts.");
+      }
       skippedRows++;
       continue;
     }
 
+    const dateCell = cell("visitDate");
     const date = parseDate(dateCell);
-    if (!date.ok) flag("INVALID_DATE", "warning", "visitDate", "VISIT DATE is not a readable date; row excluded from outstanding-age calculations.", dateCell);
+    if (!date.ok) flag("INVALID_DATE", "warning", "visitDate", "VISIT DATE is not a readable date; row excluded from outstanding-age calculations.", safeCellValue(dateCell));
     else if (date.value && date.value > input.today) flag("FUTURE_DATE", "warning", "visitDate", "VISIT DATE is in the future.", date.value);
+    else if (date.value === null) flag("MISSING_DATE", "warning", "visitDate", "VISIT DATE is blank; row counted but excluded from outstanding-age calculations.");
 
     const counts = {} as Record<"consultNotes" | "progressNotes" | "total", number | null>;
     for (const f of ["consultNotes", "progressNotes", "total"] as const) {
       const parsed = parseCount(cell(f));
       counts[f] = parsed.ok ? parsed.value : null;
-      if (!parsed.ok) flag("INVALID_NUMBER", "warning", f, `${f} is not a whole non-negative number; value ignored.`, cell(f));
+      if (!parsed.ok) flag("INVALID_NUMBER", "warning", f, `${f} is not a whole non-negative number; value ignored.`, safeCellValue(cell(f)));
     }
     if (isBlank(cell("total"))) {
       flag("MISSING_TOTAL", "warning", "total", "TOTAL is blank; row excluded from note counts.");
@@ -125,6 +124,7 @@ export function parseProviderTab(input: ParseTabInput): ParseTabResult {
     }
 
     const statuses = {} as Record<"uploadedNotes" | "billingSheet" | "faceSheet", CheckState | null>;
+    const statusTextPatterns: NonNullable<ProviderRow["statusTextPatterns"]> = {};
     for (const f of statusFields as ("uploadedNotes" | "billingSheet" | "faceSheet")[]) {
       if (cols[f] === undefined) {
         statuses[f] = null;
@@ -132,7 +132,11 @@ export function parseProviderTab(input: ParseTabInput): ParseTabResult {
       }
       const state = parseCheck(cell(f));
       statuses[f] = state;
-      if (state === "unrecognized") flag("UNEXPECTED_STATUS", "warning", f, `${f} has an unexpected value (expected TRUE/FALSE).`, cell(f));
+      if (state === "unrecognized") {
+        const pattern = safeCellValue(cell(f));
+        if (typeof pattern === "string") statusTextPatterns[f] = pattern;
+        flag("UNEXPECTED_STATUS", "warning", f, `${f} has an unexpected value (expected TRUE/FALSE).`, pattern);
+      }
     }
     if ((counts.total ?? 0) > 0 && statuses.uploadedNotes === "blank") {
       flag("MISSING_STATUS", "warning", "uploadedNotes", "UPLOADED NOTES is blank for a row with notes; upload status unknown.");
@@ -159,6 +163,7 @@ export function parseProviderTab(input: ParseTabInput): ParseTabResult {
       uploadedNotes: statuses.uploadedNotes ?? "blank",
       billingSheet: statuses.billingSheet,
       faceSheet: statuses.faceSheet,
+      ...(Object.keys(statusTextPatterns).length ? { statusTextPatterns } : {}),
     });
   }
 

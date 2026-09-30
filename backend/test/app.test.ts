@@ -26,7 +26,7 @@ describe("GET /api/dashboard/providers", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.meta).toMatchObject({ completionBasis: "row-level-upload-flag", cached: false, asOfDate: "2026-09-29" });
-    expect(body.providers[0]).toMatchObject({ name: "Jane Doe", outstandingNotes: 13, oldestOutstandingDays: 19 });
+    expect(body.providers[0]).toMatchObject({ name: "Jane Doe", outstandingNotes: 15, oldestOutstandingDays: 19 });
   });
 
   it("ignores unknown query parameters", async () => {
@@ -70,5 +70,13 @@ describe("environment", () => {
   it("requires audience and allowlist for IAP", () => {
     expect(() => loadEnv({ AUTH_MODE: "iap" })).toThrow(/IAP_AUDIENCE/);
     expect(loadEnv({ AUTH_MODE: "iap", IAP_AUDIENCE: "/projects/1/global/backendServices/2", ADMIN_ALLOWED_DOMAINS: "orcarehab.com" }).AUTH_MODE).toBe("iap");
+  });
+});
+
+describe("environment empty values", () => {
+  it("treats empty values as unset", () => {
+    const env = loadEnv({ PROVIDER_TRACKER_SPREADSHEET_ID: "", ORCA_SHARED_DRIVE_ID: "", IAP_AUDIENCE: "" });
+    expect(env.PROVIDER_TRACKER_SPREADSHEET_ID).toBeUndefined();
+    expect(env.ORCA_SHARED_DRIVE_ID).toBeUndefined();
   });
 });

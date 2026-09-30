@@ -12,7 +12,7 @@ describe("discoverProviderTabs", () => {
     expect(byTitle["JD"]?.status).toBe("provider");
     expect(byTitle["Bob Smith"]?.status).toBe("provider");
     expect(byTitle["KL"]?.status).toBe("invalid");
-    expect(byTitle["Old NP"]?.status).toBe("hidden");
+    expect(byTitle["Old NP"]).toMatchObject({ status: "provider", nameSource: "tabTitle" }); // hidden state is not a business rule
   });
 
   it("maps tab identifiers to canonical provider names", () => {
@@ -30,8 +30,8 @@ describe("discoverProviderTabs", () => {
     expect(missing?.message).toContain("uploadedNotes");
   });
 
-  it("can ignore unmapped tabs and include hidden ones", () => {
-    const result = discoverProviderTabs(trackerSnapshot().tabs, trackerConfig({ unmappedTabs: "ignore", includeHiddenTabs: true }));
+  it("can ignore unmapped tabs (hidden or not)", () => {
+    const result = discoverProviderTabs(trackerSnapshot().tabs, trackerConfig({ unmappedTabs: "ignore" }));
     const status = Object.fromEntries(result.tabs.map((t) => [t.tab.title, t.status]));
     expect(status["Bob Smith"]).toBe("unmapped-ignored");
     expect(status["Old NP"]).toBe("unmapped-ignored");
@@ -40,5 +40,14 @@ describe("discoverProviderTabs", () => {
   it("would treat the BILLER summary as a possible provider tab if not excluded", () => {
     const result = discoverProviderTabs(trackerSnapshot().tabs, trackerConfig({ excludeTabs: [] }));
     expect(result.tabs.find((t) => t.tab.title === "BILLER")?.status).toBe("provider");
+  });
+});
+
+describe("explicit provider inclusion", () => {
+  it("includes a hidden tab when it is mapped, and excludes a visible one when listed", () => {
+    const config = trackerConfig({ providers: { "gid:600": "Former NP" }, excludeTabs: ["BILLER", "Bob Smith"] });
+    const status = Object.fromEntries(discoverProviderTabs(trackerSnapshot().tabs, config).tabs.map((t) => [t.tab.title, [t.status, t.providerName]]));
+    expect(status["Old NP"]).toEqual(["provider", "Former NP"]);
+    expect(status["Bob Smith"]?.[0]).toBe("excluded");
   });
 });

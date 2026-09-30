@@ -24,6 +24,9 @@ const janeDoe: CellValue[][] = [
   /* r9 */ ["9/3-9/5", "Facility D", false, 2, 0, 2, false, false, ""], // unreadable date
   /* r10 */ [serial("2026-09-21"), "Facility A", false, 1, null, null, false, false, ""], // missing TOTAL
   /* r11 */ [serial("2026-09-22"), "Facility A", true, 1, 0, 1, "Pending", true, ""], // unexpected status
+  /* r12 */ [serial("2026-09-23"), null, false, null, null, 0, false, false], // pre-filled date, formula TOTAL 0
+  /* r13 */ [serial("2026-11-02"), null, "", null, null, 0], // future pre-filled date
+  /* r14 */ [null, null, false, 0, 2, 2, false, false, ""], // notes but no visit date
   HEADER, // repeated header block
 ];
 

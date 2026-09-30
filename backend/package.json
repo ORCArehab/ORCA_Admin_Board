@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "discover": "tsx --env-file-if-exists=.env scripts/discover-provider-tabs.ts"
+    "discover": "tsx --env-file-if-exists=.env scripts/discover-provider-tabs.ts",
+    "check:drive": "tsx --env-file-if-exists=.env scripts/check-drive-access.ts"
   },
   "description": "ORCA Rehab Admin Dashboard backend API",
   "dependencies": {

@@ -10,8 +10,8 @@ describe("provider row parsing", () => {
   const issuesAt = (row: number) => data.issues.filter((i) => i.tab === "JD" && i.row === row).map((i) => i.code);
 
   it("skips blank/template rows, section labels and repeated headers", () => {
-    expect(jane.map((r) => r.row)).toEqual([3, 4, 5, 8, 9, 10, 11]);
-    expect(data.tabs.find((t) => t.title === "JD")).toMatchObject({ parsedRows: 7, skippedRows: 3, headerRow: 2 });
+    expect(jane.map((r) => r.row)).toEqual([3, 4, 5, 8, 9, 10, 11, 14]);
+    expect(data.tabs.find((t) => t.title === "JD")).toMatchObject({ parsedRows: 8, skippedRows: 5, headerRow: 2 });
   });
 
   it("types values from serial dates, date strings and checkboxes", () => {
@@ -27,6 +27,12 @@ describe("provider row parsing", () => {
     expect(jane.find((r) => r.row === 10)?.total).toBeNull(); // not back-filled from components
     expect(issuesAt(11)).toEqual(["UNEXPECTED_STATUS"]);
     expect(jane.find((r) => r.row === 11)?.uploadedNotes).toBe("unrecognized");
+  });
+
+  it("flags rows with notes but no visit date", () => {
+    expect(issuesAt(14)).toEqual(["MISSING_DATE"]);
+    expect(issuesAt(12)).toEqual([]);
+    expect(issuesAt(13)).toEqual([]);
   });
 
   it("marks multi-facility rows instead of splitting them", () => {

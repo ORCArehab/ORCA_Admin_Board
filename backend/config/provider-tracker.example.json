@@ -4,7 +4,6 @@
     "JD": "Jane Doe"
   },
   "excludeTabs": ["BILLER"],
-  "includeHiddenTabs": false,
   "unmappedTabs": "include",
   "headerScanRows": 15,
   "columnAliases": {},

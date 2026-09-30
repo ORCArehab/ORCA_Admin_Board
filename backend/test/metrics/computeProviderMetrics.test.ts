@@ -31,18 +31,18 @@ describe("provider metrics", () => {
 
     expect(jane).toEqual({
       name: "Jane Doe",
-      expectedNotes: 22, // 5+5+6+3+2+1 (row 10 has no TOTAL)
+      expectedNotes: 24, // 5+5+6+3+2+1+2 (row 10 has no TOTAL)
       completedNotes: 8, // rows 3, 8
-      outstandingNotes: 13, // rows 4, 5, 9
+      outstandingNotes: 15, // rows 4, 5, 9, 14
       unknownStatusNotes: 1, // row 11 "Pending"
-      completionRate: 36.4,
-      outstandingBatches: 3,
-      oldestOutstandingDays: 19, // 2026-09-10 (row 9's unreadable date is excluded)
+      completionRate: 33.3,
+      outstandingBatches: 4,
+      oldestOutstandingDays: 19, // 2026-09-10 (rows 9 and 14 have no usable date)
       oldestOutstandingVisitDate: "2026-09-10",
       consults: 8,
-      followUps: 14,
-      billingSheetBacklog: 3, // rows 4, 5, 9
-      facesheetBacklog: 2, // rows 4, 9 (row 5 facesheet blank = not tracked)
+      followUps: 16,
+      billingSheetBacklog: 4, // rows 4, 5, 9, 14
+      facesheetBacklog: 3, // rows 4, 9, 14 (row 5 facesheet blank = not tracked)
     });
   });
 

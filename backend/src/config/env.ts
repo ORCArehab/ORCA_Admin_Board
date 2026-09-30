@@ -24,6 +24,9 @@ const EnvSchema = z
     /** Alternative to the file: the same JSON inline (handy for Cloud Run env/secrets). */
     PROVIDER_TRACKER_CONFIG_JSON: z.string().optional(),
 
+    /** ORCA Shared Drive ID (future RAG). Drive access is metadata-only until the RAG allowlist exists. */
+    ORCA_SHARED_DRIVE_ID: z.string().min(1).optional(),
+
     /** "iap" verifies Cloud IAP identity headers; "disabled" is only allowed outside production. */
     AUTH_MODE: z.enum(["disabled", "iap"]).default("disabled"),
     /** IAP JWT audience, e.g. /projects/PROJECT_NUMBER/global/backendServices/SERVICE_ID */
@@ -58,7 +61,9 @@ const EnvSchema = z
 export type Env = z.infer<typeof EnvSchema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = EnvSchema.safeParse(source);
+  // Treat empty values (e.g. "FOO=" copied from .env.example) as unset.
+  const cleaned = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== undefined && v !== ""));
+  const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
     const details = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${details}`);

@@ -22,9 +22,9 @@ describe("buildProviderDashboard", () => {
 
   it("lists providers including structurally broken ones as incomplete", () => {
     const byName = Object.fromEntries(dashboard.providers.map((p) => [p.name, p]));
-    expect(Object.keys(byName).sort()).toEqual(["Bob Smith", "Jane Doe", "Kim Lee"]);
+    expect(Object.keys(byName).sort()).toEqual(["Bob Smith", "Jane Doe", "Kim Lee", "Old NP"]);
     expect(byName["Kim Lee"]).toMatchObject({ dataStatus: "incomplete", expectedNotes: 0, completionRate: null, tabs: ["KL"] });
-    expect(byName["Jane Doe"]).toMatchObject({ dataStatus: "ok", warningCount: 4, tabs: ["JD"] });
+    expect(byName["Jane Doe"]).toMatchObject({ dataStatus: "ok", warningCount: 5, tabs: ["JD"] });
     expect(byName["Bob Smith"]).toMatchObject({ expectedNotes: 2, completedNotes: 2, completionRate: 100 });
   });
 

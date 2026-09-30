@@ -9,8 +9,6 @@ export type TabStatus =
   | "provider"
   /** Listed in config `excludeTabs`. */
   | "excluded"
-  /** Hidden and not explicitly mapped. */
-  | "hidden"
   /** Looks like a provider tab but is unmapped and config says `unmappedTabs: "ignore"`. */
   | "unmapped-ignored"
   /** Mapped provider tab that is structurally broken (no header / missing required columns). */
@@ -50,6 +48,8 @@ function findMappedName(config: ProviderTrackerConfig, tab: SheetTab): string | 
 /**
  * Classify every tab in the tracker. Pure: works on already-fetched values.
  * Provider tabs are recognised by their header row, never by position or name.
+ * Inclusion is decided by config (providers / excludeTabs / unmappedTabs), never by
+ * whether a tab is hidden in Google Sheets.
  */
 export function discoverProviderTabs(tabs: TabValues[], config: ProviderTrackerConfig): DiscoveryResult {
   const lookup = buildAliasLookup(config.columnAliases);
@@ -66,11 +66,6 @@ export function discoverProviderTabs(tabs: TabValues[], config: ProviderTrackerC
     }
 
     const mappedName = findMappedName(config, tab);
-    if (tab.hidden && !config.includeHiddenTabs && !mappedName) {
-      results.push({ ...base, status: "hidden" });
-      continue;
-    }
-
     const header = findHeaderRow(values, lookup, config.headerScanRows) ?? undefined;
     const missingColumns = REQUIRED_PROVIDER_FIELDS.filter((f) => header?.columns[f] === undefined);
 
@@ -92,7 +87,7 @@ export function discoverProviderTabs(tabs: TabValues[], config: ProviderTrackerC
       for (const field of header.duplicates) {
         issues.push({
           code: "DUPLICATE_COLUMN",
-          severity: "warning",
+          severity: "info",
           scope: "structure",
           tab: tab.title,
           sheetId: tab.sheetId,

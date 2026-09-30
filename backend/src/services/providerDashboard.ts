@@ -8,6 +8,7 @@ import { BACKLOG_BASIS } from "../metrics/provider/backlogRules.js";
 import { COMPLETION_BASIS } from "../metrics/provider/completionModel.js";
 import { computeProviderMetrics, type ProviderMetrics } from "../metrics/provider/computeProviderMetrics.js";
 import { readProviderTracker, type TrackerTabSummary } from "../sources/providerTracker/index.js";
+import { summarizeStatusTextPatterns, type StatusTextPatternCount } from "../sources/providerTracker/statusText.js";
 
 export interface ProviderDashboardEntry extends ProviderMetrics {
   /** "incomplete" when a structural error means some of this provider's notes could not be read. */
@@ -33,6 +34,8 @@ export interface ProviderDashboard {
     summary: Record<string, number>;
     structuralIssues: DataQualityIssue[];
     rowIssues: DataQualityIssue[];
+    /** Normalized free-text patterns in status columns (never raw text); input for future normalization rules. */
+    statusTextPatterns: StatusTextPatternCount[];
   };
 }
 
@@ -66,7 +69,12 @@ export function buildProviderDashboard(
       tabs: tracker.tabs,
     },
     providers,
-    dataQuality: { summary: summarizeIssues(tracker.issues), structuralIssues, rowIssues },
+    dataQuality: {
+      summary: summarizeIssues(tracker.issues),
+      structuralIssues,
+      rowIssues,
+      statusTextPatterns: summarizeStatusTextPatterns(tracker.rows),
+    },
   };
 }
 

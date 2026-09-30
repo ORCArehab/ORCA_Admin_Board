@@ -45,8 +45,6 @@ export const ProviderTrackerConfigSchema = z.object({
   providers: z.record(z.string(), z.string().min(1)).default({}),
   /** Tabs never treated as provider tabs (summary/BILLER/etc.), even if their headers match. */
   excludeTabs: z.array(z.string()).default([]),
-  /** Hidden tabs are skipped by default (and listed in response metadata). */
-  includeHiddenTabs: z.boolean().default(false),
   /**
    * Whether tabs that look like provider tabs but are not in `providers` are included
    * (named by tab title, flagged UNMAPPED_TAB) or ignored.

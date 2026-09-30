@@ -15,6 +15,7 @@ import { summarizeIssues } from "../src/lib/dataQuality.js";
 import { todayInTimeZone } from "../src/lib/dates.js";
 import { discoverProviderTabs } from "../src/sources/providerTracker/discoverTabs.js";
 import { readProviderTracker } from "../src/sources/providerTracker/index.js";
+import { normalizeFreeText, summarizeStatusTextPatterns } from "../src/sources/providerTracker/statusText.js";
 import type { ProviderField } from "../src/sources/providerTracker/types.js";
 
 const STATUS_FIELDS: ProviderField[] = ["uploadedNotes", "billingSheet", "faceSheet"];
@@ -73,7 +74,7 @@ async function main() {
       const distinct = new Map<string, number>();
       for (const r of dataRows) {
         const v = r[col];
-        const key = typeof v === "string" && v.length > 20 ? `<text ${v.length} chars>` : JSON.stringify(v ?? null);
+        const key = typeof v === "string" && v.trim() ? `text: "${normalizeFreeText(v)}"` : JSON.stringify(v ?? null);
         distinct.set(key, (distinct.get(key) ?? 0) + 1);
       }
       const shown = [...distinct].sort((a, b) => b[1] - a[1]).slice(0, 15);
@@ -84,6 +85,9 @@ async function main() {
   }
 
   const tracker = readProviderTracker(snapshot, config, todayInTimeZone(env.DASHBOARD_TIMEZONE));
+  console.log("Normalized free-text patterns in status columns (rows / notes):");
+  for (const p of summarizeStatusTextPatterns(tracker.rows)) console.log(`  ${p.column.padEnd(13)} ${String(p.rows).padStart(4)} / ${String(p.notes).padStart(5)}  ${p.pattern}`);
+
   console.log("Data-quality summary:", summarizeIssues(tracker.issues));
   for (const issue of tracker.issues.filter((i) => i.scope === "structure")) {
     console.log(`  [${issue.severity}] ${issue.code}: ${issue.message}`);

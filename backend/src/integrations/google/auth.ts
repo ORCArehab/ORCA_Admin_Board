@@ -18,3 +18,11 @@ export type GoogleAuthClient = InstanceType<typeof google.auth.GoogleAuth>;
 export function createGoogleAuth(scopes: string[] = [SHEETS_READONLY_SCOPE]): GoogleAuthClient {
   return new google.auth.GoogleAuth({ scopes });
 }
+
+/**
+ * Read-only Drive scope. Needed to enumerate Shared Drives (drives.list does not accept
+ * drive.metadata.readonly). Access is still bounded by what is shared with the service
+ * account (Viewer), and the application only requests metadata fields until the RAG
+ * allowlist exists; no code path downloads file contents yet.
+ */
+export const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
