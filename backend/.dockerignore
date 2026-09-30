@@ -3,6 +3,7 @@ dist
 .env
 .env.*
 config/provider-tracker.json
+config/scribe-tracker.json
 *service-account*.json
 *-key.json
 credentials*.json

@@ -7,7 +7,7 @@ import type { Env } from "./env.js";
  * Only sources listed here are ever fetched; the Sheets client rejects any other ID.
  * Spreadsheet IDs come from the environment, never from source control.
  */
-export type SourceKey = "providerTracker";
+export type SourceKey = "providerTracker" | "scribeTracker";
 
 export interface SheetSource {
   key: SourceKey;
@@ -23,6 +23,13 @@ export function loadSheetSources(env: Env): Partial<Record<SourceKey, SheetSourc
       key: "providerTracker",
       label: "ORCA-NP/Scribe Tracker 2026",
       spreadsheetId: env.PROVIDER_TRACKER_SPREADSHEET_ID,
+    };
+  }
+  if (env.SCRIBE_TRACKER_SPREADSHEET_ID) {
+    sources.scribeTracker = {
+      key: "scribeTracker",
+      label: "ORCA-REMOWORKS-Scribe Tracker 2026",
+      spreadsheetId: env.SCRIBE_TRACKER_SPREADSHEET_ID,
     };
   }
   return sources;
@@ -61,16 +68,49 @@ export const ProviderTrackerConfigSchema = z.object({
 export type ProviderTrackerConfig = z.infer<typeof ProviderTrackerConfigSchema>;
 
 export function loadProviderTrackerConfig(env: Env): ProviderTrackerConfig {
+  return loadJsonConfig(ProviderTrackerConfigSchema, env.PROVIDER_TRACKER_CONFIG_JSON, env.PROVIDER_TRACKER_CONFIG_PATH, "provider tracker");
+}
+
+/**
+ * Scribe-tracker configuration (V1 source of truth: the "Daily Production" tab only).
+ * Tab references use the same "Tab Title" / "gid:123" form as the provider config.
+ */
+export const ScribeTrackerConfigSchema = z.object({
+  /**
+   * The production tab. When omitted, the single tab whose header has SCRIBE, CLOCK IN,
+   * TOTAL HOURS, TOTAL and UPLOADED NOTES is used (per-scribe tabs have no SCRIBE column).
+   */
+  productionTab: z.string().optional(),
+  /** Scribe name as written in the sheet → canonical display name. Unlisted names are used as written. */
+  scribes: z.record(z.string(), z.string().min(1)).default({}),
+  /**
+   * First work date covered by the source. Rows dated earlier are flagged and excluded, and
+   * the API reports this as the start of available history.
+   */
+  historyStartsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** Stored vs clock-derived hours may differ by this much before a warning is raised. */
+  hoursToleranceMinutes: z.number().nonnegative().default(15),
+  /** Sessions shorter / longer than these are flagged as data-quality information (never changed). */
+  shortSessionMinutes: z.number().nonnegative().default(15),
+  longSessionHours: z.number().positive().default(12),
+  headerScanRows: z.number().int().positive().default(10),
+  multiFacilitySeparators: z.array(z.string()).default(["/", ",", ";", "+", "\n"]),
+});
+
+export type ScribeTrackerConfig = z.infer<typeof ScribeTrackerConfigSchema>;
+
+export function loadScribeTrackerConfig(env: Env): ScribeTrackerConfig {
+  return loadJsonConfig(ScribeTrackerConfigSchema, env.SCRIBE_TRACKER_CONFIG_JSON, env.SCRIBE_TRACKER_CONFIG_PATH, "scribe tracker");
+}
+
+function loadJsonConfig<S extends z.ZodType>(schema: S, inline: string | undefined, path: string, label: string): z.infer<S> {
   let raw: unknown = {};
-  if (env.PROVIDER_TRACKER_CONFIG_JSON) {
-    raw = JSON.parse(env.PROVIDER_TRACKER_CONFIG_JSON);
-  } else if (existsSync(env.PROVIDER_TRACKER_CONFIG_PATH)) {
-    raw = JSON.parse(readFileSync(env.PROVIDER_TRACKER_CONFIG_PATH, "utf8"));
-  }
-  const parsed = ProviderTrackerConfigSchema.safeParse(raw);
+  if (inline) raw = JSON.parse(inline);
+  else if (existsSync(path)) raw = JSON.parse(readFileSync(path, "utf8"));
+  const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     const details = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
-    throw new Error(`Invalid provider tracker config:\n${details}`);
+    throw new Error(`Invalid ${label} config:\n${details}`);
   }
   return parsed.data;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { AttentionList } from "@/components/providers/AttentionList";
-import { DataFreshness } from "@/components/providers/DataFreshness";
+import { DataFreshness } from "@/components/DataFreshness";
 import { ProviderSummary } from "@/components/providers/ProviderSummary";
 import { ProviderTable } from "@/components/providers/ProviderTable";
 import { ErrorState, LoadingState, PageHeader, Section } from "@/components/ui";
@@ -14,7 +14,7 @@ export default function OverviewPage() {
       <PageHeader
         title="Provider documentation"
         description="How provider documentation is doing, and who needs attention."
-        aside={state.status === "ready" ? <DataFreshness data={state.data} refreshing={state.refreshing} onRefresh={state.refresh} /> : undefined}
+        aside={state.status === "ready" ? <DataFreshness fetchedAt={state.data.meta.source.fetchedAt} timezone={state.data.meta.timezone} refreshing={state.refreshing} onRefresh={state.refresh} /> : undefined}
       />
       {state.status === "loading" && <LoadingState />}
       {state.status === "error" && <ErrorState error={state.error} />}

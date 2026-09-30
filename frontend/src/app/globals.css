@@ -189,3 +189,10 @@ button { font: inherit; color: inherit; }
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
+
+/* ── Segmented control ─────────────────────────────────── */
+.segmented { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.segment { border: 0; background: none; padding: 5px 12px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+.segment + .segment { border-left: 1px solid var(--border-strong); }
+.segment[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.scope-line { color: var(--text-muted); font-size: 13px; margin: -12px 0 20px; }

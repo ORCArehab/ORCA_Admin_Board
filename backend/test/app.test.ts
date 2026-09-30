@@ -4,6 +4,8 @@ import { DisabledAuthenticator, isAllowed, type Authenticator } from "../src/aut
 import { loadEnv } from "../src/config/env.js";
 import { AppError } from "../src/lib/errors.js";
 import { ProviderDashboardService } from "../src/services/providerDashboard.js";
+import { ScribeDashboardService } from "../src/services/scribeDashboard.js";
+import { scribeConfig, scribeSnapshot } from "./fixtures/scribeTracker.js";
 import { trackerConfig, trackerSnapshot } from "./fixtures/providerTracker.js";
 
 function service() {
@@ -17,8 +19,19 @@ function service() {
   });
 }
 
+function scribes() {
+  return new ScribeDashboardService({
+    reader: { readSpreadsheet: async () => scribeSnapshot() },
+    source: { key: "scribeTracker", label: "ORCA-REMOWORKS-Scribe Tracker 2026", spreadsheetId: "scribe-test" },
+    config: scribeConfig(),
+    timezone: "America/Los_Angeles",
+    cacheTtlMs: 60_000,
+    now: () => new Date("2026-09-29T18:00:00Z"),
+  });
+}
+
 describe("GET /api/dashboard/providers", () => {
-  const app = buildApp({ authenticator: new DisabledAuthenticator(), providerDashboard: service() });
+  const app = buildApp({ authenticator: new DisabledAuthenticator(), providerDashboard: service(), scribeDashboard: scribes() });
   afterAll(() => app.close());
 
   it("returns provider metrics", async () => {
@@ -34,6 +47,14 @@ describe("GET /api/dashboard/providers", () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it("serves scribe metrics at /api/dashboard/scribes", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/dashboard/scribes" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.meta).toMatchObject({ cached: false, scope: { sourceTab: "Daily Production", historyStartsOn: "2026-08-01" } });
+    expect(body.scribes.map((s: { name: string }) => s.name)).toEqual(["Ann", "Bea"]);
+  });
+
   it("serves an unauthenticated health check", async () => {
     expect((await app.inject({ method: "GET", url: "/healthz" })).statusCode).toBe(200);
   });
@@ -45,12 +66,13 @@ describe("API authentication", () => {
       throw new AppError(401, "UNAUTHENTICATED", "Missing IAP identity.");
     },
   };
-  const app = buildApp({ authenticator: denyAll, providerDashboard: service() });
+  const app = buildApp({ authenticator: denyAll, providerDashboard: service(), scribeDashboard: scribes() });
   afterAll(() => app.close());
 
   it("blocks /api routes when authentication fails", async () => {
     const res = await app.inject({ method: "GET", url: "/api/dashboard/providers" });
     expect(res.statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url: "/api/dashboard/scribes" })).statusCode).toBe(401);
     expect(res.json()).toEqual({ error: { code: "UNAUTHENTICATED", message: "Missing IAP identity." } });
   });
 

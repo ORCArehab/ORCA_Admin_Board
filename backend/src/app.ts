@@ -2,7 +2,9 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastif
 import type { AdminIdentity, Authenticator } from "./auth/authenticator.js";
 import { AppError } from "./lib/errors.js";
 import { providerRoutes } from "./routes/dashboard/providers.js";
+import { scribeRoutes } from "./routes/dashboard/scribes.js";
 import type { ProviderDashboardService } from "./services/providerDashboard.js";
+import type { ScribeDashboardService } from "./services/scribeDashboard.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -13,6 +15,7 @@ declare module "fastify" {
 export interface AppDeps {
   authenticator: Authenticator;
   providerDashboard: ProviderDashboardService;
+  scribeDashboard: ScribeDashboardService;
 }
 
 /**
@@ -47,6 +50,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}): Fas
       });
 
       api.register(providerRoutes, { prefix: "/dashboard", providerDashboard: deps.providerDashboard });
+      api.register(scribeRoutes, { prefix: "/dashboard", scribeDashboard: deps.scribeDashboard });
     },
     { prefix: "/api" },
   );

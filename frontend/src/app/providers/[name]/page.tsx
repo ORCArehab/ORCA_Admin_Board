@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { DataFreshness } from "@/components/providers/DataFreshness";
+import { DataFreshness } from "@/components/DataFreshness";
 import { ErrorState, LoadingState, PageHeader, SourceNote } from "@/components/ui";
 import { hasLimitedCoverage } from "@/lib/attention";
 import { EMPTY, formatCount, formatDate, formatDays, formatPercent } from "@/lib/format";
@@ -35,7 +35,7 @@ export default function ProviderDetailPage() {
       <PageHeader
         back={back}
         title={name}
-        aside={state.status === "ready" ? <DataFreshness data={state.data} refreshing={state.refreshing} onRefresh={state.refresh} /> : undefined}
+        aside={state.status === "ready" ? <DataFreshness fetchedAt={state.data.meta.source.fetchedAt} timezone={state.data.meta.timezone} refreshing={state.refreshing} onRefresh={state.refresh} /> : undefined}
       />
       {state.status === "loading" && <LoadingState />}
       {state.status === "error" && <ErrorState error={state.error} />}

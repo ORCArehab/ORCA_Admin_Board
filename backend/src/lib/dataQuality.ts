@@ -23,6 +23,7 @@ export interface DataQualityIssue {
   row?: number;
   column?: string;
   provider?: string;
+  scribe?: string;
   value?: string | number | boolean | null;
 }
 

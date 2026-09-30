@@ -24,6 +24,13 @@ const EnvSchema = z
     /** Alternative to the file: the same JSON inline (handy for Cloud Run env/secrets). */
     PROVIDER_TRACKER_CONFIG_JSON: z.string().optional(),
 
+    /** Spreadsheet ID of "ORCA-REMOWORKS-Scribe Tracker 2026". */
+    SCRIBE_TRACKER_SPREADSHEET_ID: z.string().min(1).optional(),
+    /** Path to the scribe-tracker JSON config (production tab, scribe name mapping). */
+    SCRIBE_TRACKER_CONFIG_PATH: z.string().default("config/scribe-tracker.json"),
+    /** Alternative to the file: the same JSON inline. */
+    SCRIBE_TRACKER_CONFIG_JSON: z.string().optional(),
+
     /** ORCA Shared Drive ID (future RAG). Drive access is metadata-only until the RAG allowlist exists. */
     ORCA_SHARED_DRIVE_ID: z.string().min(1).optional(),
 

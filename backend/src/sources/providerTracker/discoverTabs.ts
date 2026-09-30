@@ -30,12 +30,8 @@ export interface DiscoveryResult {
   issues: DataQualityIssue[];
 }
 
-/** Does a config tab reference ("Tab Title" or "gid:123") point at this tab? */
-export function tabRefMatches(ref: string, tab: SheetTab): boolean {
-  const trimmed = ref.trim();
-  if (trimmed.toLowerCase().startsWith("gid:")) return trimmed.slice(4).trim() === String(tab.sheetId);
-  return trimmed === tab.title.trim();
-}
+export { tabRefMatches } from "../../lib/tabRefs.js";
+import { tabRefMatches } from "../../lib/tabRefs.js";
 
 function findMappedName(config: ProviderTrackerConfig, tab: SheetTab): string | undefined {
   // Prefer gid refs (stable across renames) over title refs.

@@ -17,10 +17,8 @@ export const DEFAULT_COLUMN_ALIASES: Record<ProviderField, string[]> = {
   faceSheet: ["FACE SHEET", "FACE SHEETS"],
 };
 
-export function normalizeHeader(value: CellValue): string {
-  if (value === null || value === undefined) return "";
-  return String(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
+export { normalizeHeader } from "../../lib/sheetHeaders.js";
+import { normalizeHeader } from "../../lib/sheetHeaders.js";
 
 export type AliasLookup = Map<string, ProviderField>;
 

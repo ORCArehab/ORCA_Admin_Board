@@ -29,3 +29,21 @@ export function formatDateTime(iso: string, timeZone: string): string {
 export function providerHref(name: string): string {
   return `/providers/${encodeURIComponent(name)}`;
 }
+
+export function scribeHref(name: string): string {
+  return `/scribes/${encodeURIComponent(name)}`;
+}
+
+/** Hours and rates: always one decimal so columns line up ("8.0", "301.4"). */
+export function formatDecimal(n: number | null): string {
+  if (n === null) return EMPTY;
+  return n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** "Aug 1 – Sep 28, 2026" (same year collapses). */
+export function formatDateRange(from: string, to: string): string {
+  const f = formatDate(from);
+  const t = formatDate(to);
+  if (from.slice(0, 4) === to.slice(0, 4)) return `${f.replace(/, \d{4}$/, "")} – ${t}`;
+  return `${f} – ${t}`;
+}

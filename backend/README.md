@@ -223,6 +223,28 @@ Response shape:
 
 `?refresh=true` skips the cache (default TTL: 5 minutes).
 
+## Scribe metrics (V1) — `GET /api/dashboard/scribes`
+
+Source: the **"📈 Daily Production"** tab of ORCA-REMOWORKS-Scribe Tracker 2026 only (`SCRIBE_TRACKER_SPREADSHEET_ID`, `config/scribe-tracker.json`). History starts **Aug 1, 2026** (`historyStartsOn`). Per-scribe history tabs and former scribes are not included, and `meta.scope` says so.
+
+| Field | Definition |
+|---|---|
+| `notesProduced` | SUM(TOTAL), by work date |
+| `consults` / `followUps` | SUM(CONSULT NOTES) / SUM(PROGRESS NOTES) |
+| `hoursWorked` | SUM(stored TOTAL HOURS), all sessions including upload-only ones |
+| `notesPerHour` | notesProduced ÷ hoursWorked for the period (aggregate ratio; row AVERAGE is ignored) |
+| `notesUploaded` | SUM(UPLOADED NOTES): upload activity, never divided by production |
+| `facilitiesWorked` | distinct facilities on single-facility entries |
+| `multiFacilityEntries` / `unallocatedFacilityNotes` | entries naming several facilities, and their notes (counted, never attributed to a facility) |
+| `production.daily/weekly/monthly` | the same totals by work date (weeks start Monday) |
+
+Rules:
+- **Continuation rows.** A row with blank DATE and SCRIBE inherits them from the row above only when it matches the sheet's continuation structure (facility + date of service, no clock times). A blank row ends the context. Inherited rows are flagged `INHERITED_ATTRIBUTION`; anything else unattributed is flagged and excluded.
+- **Hours.** Stored TOTAL HOURS is authoritative. Clock-derived hours (midnight crossings handled) are only for validation: `HOURS_MISMATCH` beyond 15 min, `SHORT_SESSION` (< 15 min) and `LONG_SESSION` (> 12 h) are flagged, and the data is never changed.
+- **EXTRA NOTES** is excluded from all calculations. Only normalized patterns appear, in `dataQuality.extraNotesPatterns`.
+- **No completion %, outstanding counts, uploaded ÷ produced, rankings or scores.** Scribes are listed alphabetically.
+- **Facility names** are internal in V1 (counts only). Normalization via Master HIM 1 comes later.
+
 ## Data-quality issues
 
 Questionable rows are **flagged, never repaired**. A row is left out only of the calculations it can't support.

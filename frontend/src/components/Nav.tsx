@@ -14,7 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Overview", href: "/", isActive: (p) => p === "/" },
   { label: "Providers", href: "/providers", isActive: (p) => p.startsWith("/providers") },
-  { label: "Scribes", href: "/scribes", soon: true },
+  { label: "Scribes", href: "/scribes", isActive: (p) => p.startsWith("/scribes") },
   { label: "Facilities", href: "/facilities", soon: true },
   { label: "ORCA AI", href: "/ai", soon: true },
 ];

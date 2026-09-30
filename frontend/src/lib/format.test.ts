@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCount, formatDays, formatPercent, providerHref } from "./format";
+import { formatCount, formatDays, formatDecimal, formatPercent, providerHref } from "./format";
 
 describe("format", () => {
   it("shows missing values as an em dash, never 0", () => {
@@ -14,6 +14,12 @@ describe("format", () => {
     expect(formatPercent(100)).toBe("100%");
     expect(formatDays(1)).toBe("1 day");
     expect(formatDays(91)).toBe("91 days");
+  });
+
+  it("always shows one decimal for hours and rates", () => {
+    expect(formatDecimal(8)).toBe("8.0");
+    expect(formatDecimal(1234.56)).toBe("1,234.6");
+    expect(formatDecimal(null)).toBe("—");
   });
 
   it("builds safe provider links", () => {

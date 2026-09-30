@@ -1,3 +1,4 @@
+import type { ScribeDashboard } from "./scribeTypes";
 import type { ProviderDashboard } from "./types";
 
 /**
@@ -38,4 +39,8 @@ async function getJson<T>(path: string): Promise<T> {
 
 export function fetchProviderDashboard(opts: { refresh?: boolean } = {}): Promise<ProviderDashboard> {
   return getJson<ProviderDashboard>(`/api/dashboard/providers${opts.refresh ? "?refresh=true" : ""}`);
+}
+
+export function fetchScribeDashboard(opts: { refresh?: boolean } = {}): Promise<ScribeDashboard> {
+  return getJson<ScribeDashboard>(`/api/dashboard/scribes${opts.refresh ? "?refresh=true" : ""}`);
 }

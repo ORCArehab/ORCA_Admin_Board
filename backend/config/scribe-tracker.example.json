@@ -1,0 +1,9 @@
+{
+  "productionTab": "gid:123456789",
+  "historyStartsOn": "2026-08-01",
+  "scribes": { "Name as written": "Canonical Name" },
+  "hoursToleranceMinutes": 15,
+  "shortSessionMinutes": 15,
+  "longSessionHours": 12,
+  "multiFacilitySeparators": ["/", ",", ";", "+", "\n"]
+}

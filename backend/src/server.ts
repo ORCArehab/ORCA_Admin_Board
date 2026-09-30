@@ -1,10 +1,11 @@
 import { buildApp } from "./app.js";
 import { createAuthenticator } from "./auth/authenticator.js";
 import { loadEnv } from "./config/env.js";
-import { loadProviderTrackerConfig, loadSheetSources } from "./config/sources.js";
+import { loadProviderTrackerConfig, loadScribeTrackerConfig, loadSheetSources } from "./config/sources.js";
 import { createGoogleAuth } from "./integrations/google/auth.js";
 import { GoogleSheetsReader } from "./integrations/google/sheets.js";
 import { ProviderDashboardService } from "./services/providerDashboard.js";
+import { ScribeDashboardService } from "./services/scribeDashboard.js";
 
 /** Composition root: the only place env, Google auth and services are wired together. */
 async function main() {
@@ -23,10 +24,18 @@ async function main() {
         timezone: env.DASHBOARD_TIMEZONE,
         cacheTtlMs: env.CACHE_TTL_SECONDS * 1000,
       }),
+      scribeDashboard: new ScribeDashboardService({
+        reader,
+        source: sources.scribeTracker,
+        config: loadScribeTrackerConfig(env),
+        timezone: env.DASHBOARD_TIMEZONE,
+        cacheTtlMs: env.CACHE_TTL_SECONDS * 1000,
+      }),
     },
     { logger: { level: env.LOG_LEVEL } },
   );
 
+  if (!sources.scribeTracker) app.log.warn("SCRIBE_TRACKER_SPREADSHEET_ID is not set; /api/dashboard/scribes will return 503");
   if (!sources.providerTracker) app.log.warn("PROVIDER_TRACKER_SPREADSHEET_ID is not set; /api/dashboard/providers will return 503");
   if (env.AUTH_MODE === "disabled") app.log.warn("AUTH_MODE=disabled: API is unauthenticated (development only)");
 
