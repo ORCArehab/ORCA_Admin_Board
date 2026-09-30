@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.*
+config/provider-tracker.json
+*service-account*.json
+*-key.json
+credentials*.json
+test

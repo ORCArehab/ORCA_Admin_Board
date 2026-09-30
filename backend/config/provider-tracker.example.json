@@ -1,0 +1,12 @@
+{
+  "providers": {
+    "gid:123456789": "Canonical Provider Name",
+    "JD": "Jane Doe"
+  },
+  "excludeTabs": ["BILLER"],
+  "includeHiddenTabs": false,
+  "unmappedTabs": "include",
+  "headerScanRows": 15,
+  "columnAliases": {},
+  "multiFacilitySeparators": ["/", ",", ";", "+", "\n"]
+}
