@@ -3,16 +3,14 @@
 Internal ORCA Rehab Admin Dashboard frontend (Next.js + TypeScript). It answers one question first:
 **"How is provider documentation doing, and who needs attention?"**
 
-It is a separate app from the Fastify backend (`../backend`) and consumes `GET /api/dashboard/providers`.
+It runs at **admin.orcarehab.com** (Vercel project from this repo, root directory `frontend`). Its data comes
+from the shared ORCA API (`ORCA_Careers_API`), which now hosts the dashboard pipeline that used to live in
+`../backend`. The employee portal links to it from an Admin-only "Operations" app tile.
 
 ## Run locally
 
 ```bash
-# terminal 1: backend (uses backend/.env; AUTH_MODE=disabled, loopback only)
-cd ../backend && npm run dev
-
-# terminal 2: frontend
-cp .env.example .env.local     # optional; BACKEND_DEV_URL defaults to http://127.0.0.1:8080
+cp .env.example .env.local     # fill in ORCA_API_URL/KEY, Google client, AUTH_SECRET
 npm install
 npm run dev                    # http://localhost:3000
 ```
@@ -24,24 +22,27 @@ npm run typecheck
 npm run build
 ```
 
-## How the frontend reaches the API (and authentication)
+## Sign-in and data access
 
-The browser only calls **same-origin** `/api/*`. The frontend never holds Google or service credentials.
-
-| | How `/api/*` reaches the backend | Who authenticates |
-|---|---|---|
-| Local dev | `next dev` proxies `/api/*` to `BACKEND_DEV_URL` (rewrite in `next.config.ts`, dev only) | Nobody: backend runs `AUTH_MODE=disabled` on loopback |
-| Production | One HTTPS load balancer: `/api/*` → backend Cloud Run, everything else → this app | **Cloud IAP** (ORCA Google Workspace) on both services; the backend verifies its own IAP JWT and admin allowlist |
-
-The dev proxy is disabled in production builds on purpose. Proxying through Next.js would forward the frontend's IAP assertion, which has the wrong audience for the backend, and would blur the backend's auth boundary. A `401`/`403` from the API shows a "Sign-in required" state.
+- **Sign-in:** Google (Auth.js), using the employee portal's OAuth client, limited to the ORCA Workspace domain.
+  The Google ID token is exchanged at `POST /v1/identity/sessions` on the ORCA API with this app's key; only people
+  with the **ADMIN** role get in. Roles are re-checked every 10 minutes, and the session ends if ADMIN is removed.
+- **Data:** the browser calls this app's own `/api/dashboard/{providers,scribes}`. Those routes run on the server and
+  call the ORCA API with this app's key (`ORCA_API_KEY`, which is `ADMIN_API_KEY` in the API) plus the admin's user
+  token. The API checks `dashboard.read` (ADMIN) on every request. No key or token ever reaches the browser.
+- **New admin features** (editing data and so on) should be added as API routes that check the role and record the
+  actor, then called from here the same way. This app never connects to the database directly.
 
 ## Structure
 
 ```
 src/
   app/
-    layout.tsx                  shell: navigation + main
-    page.tsx                    Overview: summary, Needs attention, provider table
+    layout.tsx                  html/body only
+    sign-in, access-denied      Google sign-in and refusal pages
+    api/dashboard/[resource]    server-side calls to the ORCA API
+    (dashboard)/layout.tsx      shell: navigation + main, requires a session
+    (dashboard)/page.tsx        Overview: summary, Needs attention, provider table
     providers/page.tsx          provider table with search
     providers/[name]/page.tsx   provider detail
     scribes/page.tsx            scribe production: scope, summary, scribe table, weekly/monthly table

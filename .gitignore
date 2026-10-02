@@ -5,3 +5,4 @@
 *-key.json
 credentials*.json
 node_modules/
+.vercel

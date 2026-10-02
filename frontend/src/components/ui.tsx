@@ -74,14 +74,16 @@ export function ErrorState({ error }: { error: ApiError }) {
     return (
       <div className="state" role="alert">
         <h2>Sign-in required</h2>
-        This dashboard is limited to authorized ORCA Google Workspace accounts. Sign in with your ORCA account, or ask an
-        administrator for access.
+        {error.message}{" "}
+        <a className="text-link" href="/sign-in">
+          Sign in again
+        </a>
       </div>
     );
   }
   return (
     <div className="state" role="alert">
-      <h2>Provider data is unavailable</h2>
+      <h2>Data is unavailable</h2>
       {error.message}
     </div>
   );
