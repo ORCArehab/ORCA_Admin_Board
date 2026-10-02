@@ -2,11 +2,9 @@ import type { ScribeDashboard } from "./scribeTypes";
 import type { ProviderDashboard } from "./types";
 
 /**
- * The browser only ever calls same-origin /api/* paths:
- *  - local dev: next.config.ts proxies /api/* to the Fastify backend
- *  - production: the HTTPS load balancer routes /api/* to the backend service, and Cloud IAP
- *    authenticates the ORCA Google Workspace user for both services
- * The frontend never holds Google or service credentials.
+ * The browser only ever calls this app's same-origin /api/dashboard/* routes. Those run on the
+ * server and call the shared ORCA API with this app's key and the signed-in admin's user token
+ * (src/app/api/dashboard/[resource]/route.ts), so no credentials reach the browser.
  */
 export class ApiError extends Error {
   constructor(

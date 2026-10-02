@@ -19,7 +19,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: "ORCA AI", href: "/ai", soon: true },
 ];
 
-export function Nav() {
+/** The employee portal, linked from the nav so admins can get back to it. */
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? "https://portal.orcarehab.com";
+
+export function Nav({ userLabel, signOutAction }: { userLabel: string; signOutAction: () => Promise<void> }) {
   const pathname = usePathname();
   return (
     <nav className="nav" aria-label="Main">
@@ -45,6 +48,17 @@ export function Nav() {
           ),
         )}
       </ul>
+      <div className="nav-footer">
+        <span className="nav-user" title={userLabel}>
+          {userLabel}
+        </span>
+        <div className="nav-footer-links">
+          <a href={PORTAL_URL}>Employee portal</a>
+          <form action={signOutAction}>
+            <button type="submit">Sign out</button>
+          </form>
+        </div>
+      </div>
     </nav>
   );
 }
