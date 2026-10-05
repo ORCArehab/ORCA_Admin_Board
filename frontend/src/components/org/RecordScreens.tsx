@@ -2,14 +2,28 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { createFacility, createStaff, getFacility, getStaff, updateFacility, updateStaff } from "@/lib/org/api";
 import { FACILITY_DEFAULTS, facilitySections, STAFF_DEFAULTS, staffSections } from "@/lib/org/fields";
 import { toFormValues } from "@/lib/org/form";
-import { EMPLOYMENT_STATUS_LABELS, labelFor, OPERATIONAL_STATUS_LABELS, type Facility, type OrgEvent } from "@/lib/org/types";
+import {
+  addressLines,
+  facilityAdditional,
+  facilityContact,
+  facilityStatus,
+  facilityType,
+  isSchedulable,
+  staffAdditional,
+  staffCategory,
+  staffOverview,
+  staffStatus,
+  staffSubtitle,
+} from "@/lib/org/profile";
+import type { Facility, FacilityDetail, StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
+import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
 
 const ASSIGNMENT_LABELS: Record<string, string> = {
@@ -56,6 +70,13 @@ export function NewEmployeeScreen() {
 export function EmployeeScreen({ id, created }: { id: string; created: boolean }) {
   const state = useOrgResource(() => getStaff(id), [id]);
   const sections = useMemo(() => staffSections(false), []);
+  const [mode, setMode] = useState<Mode>("view");
+  const [flash, setFlash] = useState<string | null>(created ? "Employee created." : null);
+  const switchTo = (next: Mode) => {
+    setMode(next);
+    if (next === "edit") setFlash(null);
+    window.scrollTo({ top: 0 });
+  };
 
   if (state.status !== "ready") {
     return (
@@ -65,56 +86,92 @@ export function EmployeeScreen({ id, created }: { id: string; created: boolean }
       </>
     );
   }
-  const { staff, assignments, sourceOwned, events } = state.data;
-  return (
-    <>
-      <PageHeader
-        back={employeesBack}
-        title={staff.displayName}
-        description={
-          <>
-            <span className="num">{staff.staffNumber}</span> · {labelFor(EMPLOYMENT_STATUS_LABELS, staff.employmentStatus)}
-            {!staff.directoryVisible && " · hidden from the directory"}
-          </>
-        }
-      />
-      {created && <p className="record-banner" role="status">Employee created.</p>}
-      <div className="record-layout">
+  const { staff, sourceOwned } = state.data;
+
+  if (mode === "edit") {
+    return (
+      <>
+        <PageHeader
+          back={<BackButton label="Back to profile" onClick={() => switchTo("view")} />}
+          title={`Edit ${staff.displayName}`}
+          description="Changes are saved to the shared staff record and listed in its activity."
+        />
+        {sourceOwned && <SourceNote source="Master HR" />}
         <RecordForm
           key={staff.id}
           sections={sections}
           initial={toFormValues(sections, staff)}
           defaults={{}}
           submitLabel="Save changes"
+          onCancel={() => switchTo("view")}
           onSubmit={async (payload) => {
             const result = await updateStaff(id, payload);
-            state.reload();
-            return toFormValues(sections, result.staff);
+            state.replace((d) => ({ ...d, staff: result.staff }));
+            state.reload(); // refreshes the activity list
+            setFlash("Changes saved.");
+            switchTo("view");
           }}
         />
-        <aside className="record-aside">
+      </>
+    );
+  }
+
+  return <EmployeeProfile detail={state.data} flash={flash} onEdit={() => switchTo("edit")} />;
+}
+
+/** The read-only employee profile (presentational; EmployeeScreen loads the data and owns edit mode). */
+export function EmployeeProfile({ detail, flash, onEdit }: { detail: StaffDetail; flash: string | null; onEdit: () => void }) {
+  const { staff, assignments, sourceOwned, events } = detail;
+  const schedulable = isSchedulable(staff);
+  return (
+    <>
+      <ProfileHeader
+        back={employeesBack}
+        badge={<Avatar name={staff.displayName} size="lg" />}
+        title={staff.displayName}
+        subtitle={staffSubtitle(staff)}
+        meta={[staffCategory(staff), staffStatus(staff), !staff.directoryVisible && "Hidden from the directory"]}
+        action={
+          <button type="button" className="button button-primary-sm" onClick={onEdit}>
+            Edit employee
+          </button>
+        }
+      />
+      {flash && <p className="record-banner" role="status">{flash}</p>}
+      <div className="profile-layout">
+        <div className="profile-main">
+          <ProfileSection title="Overview">
+            <DetailList items={staffOverview(staff)} empty="No details recorded yet." />
+          </ProfileSection>
+          <ProfileSection title="Facility assignments">
+            <LinkRows
+              rows={assignments.map((a) => ({
+                id: a.id,
+                label: a.facility.name,
+                href: `/facilities/${a.facility.id}`,
+                detail: [ASSIGNMENT_LABELS[a.type] ?? a.type, a.effectiveFrom && `since ${formatDate(a.effectiveFrom)}`].filter(Boolean).join(" · "),
+              }))}
+              empty="No facility assignments."
+            />
+            <p className="profile-note">Assignments are managed in the employee portal. Open a facility to see everyone assigned there.</p>
+          </ProfileSection>
+          {schedulable && (
+            <ProfileSection title="Schedule">
+              <p className="profile-note profile-note-lead">This provider&apos;s entries on the weekly schedule board.</p>
+              <Link className="button" href={`/schedule?provider=${encodeURIComponent(staff.id)}`}>
+                View schedule
+              </Link>
+            </ProfileSection>
+          )}
+          <ProfileSection title="Documents">
+            <p className="profile-empty">Employee documents will appear here once document storage is connected.</p>
+          </ProfileSection>
+          <ProfileSection title="Additional information">
+            <DetailList items={staffAdditional(staff)} />
+          </ProfileSection>
+        </div>
+        <aside className="profile-aside">
           {sourceOwned && <SourceNote source="Master HR" />}
-          <section className="panel">
-            <h2>Facility assignments</h2>
-            {assignments.length === 0 ? (
-              <p className="panel-note">None.</p>
-            ) : (
-              <ul className="record-list">
-                {assignments.map((a) => (
-                  <li key={a.id}>
-                    <Link className="table-link" href={`/facilities/${a.facility.id}`}>
-                      {a.facility.name}
-                    </Link>
-                    <span className="muted">
-                      {ASSIGNMENT_LABELS[a.type] ?? a.type}
-                      {a.effectiveFrom && ` · since ${formatDate(a.effectiveFrom)}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="panel-note">Assignments are managed in the employee portal.</p>
-          </section>
           <History events={events} />
         </aside>
       </div>
@@ -156,6 +213,13 @@ export function NewFacilityScreen() {
 export function FacilityScreen({ id, created }: { id: string; created: boolean }) {
   const state = useOrgResource(() => getFacility(id), [id]);
   const sections = useMemo(() => facilitySections(false), []);
+  const [mode, setMode] = useState<Mode>("view");
+  const [flash, setFlash] = useState<string | null>(created ? "Facility created." : null);
+  const switchTo = (next: Mode) => {
+    setMode(next);
+    if (next === "edit") setFlash(null);
+    window.scrollTo({ top: 0 });
+  };
 
   if (state.status !== "ready") {
     return (
@@ -165,69 +229,93 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
       </>
     );
   }
-  const { facility, aliases, assignments, sourceOwned, events } = state.data;
-  const otherNames = aliases.filter((a) => a.type !== "canonical_name" && a.type !== "abbreviation");
-  return (
-    <>
-      <PageHeader
-        back={facilitiesBack}
-        title={facility.abbreviation ? `${facility.abbreviation} · ${facility.name}` : facility.name}
-        description={
-          <>
-            <span className="num">{facility.facilityNumber}</span> · {labelFor(OPERATIONAL_STATUS_LABELS, facility.operationalStatus)}
-            {facility.archivedAt && " · archived"}
-          </>
-        }
-      />
-      {created && <p className="record-banner" role="status">Facility created.</p>}
-      <div className="record-layout">
+  const { facility, sourceOwned } = state.data;
+
+  if (mode === "edit") {
+    return (
+      <>
+        <PageHeader
+          back={<BackButton label="Back to profile" onClick={() => switchTo("view")} />}
+          title={`Edit ${facility.name}`}
+          description="Changes are saved to the shared facility record and listed in its activity."
+        />
+        {sourceOwned && <SourceNote source="Master HIM 1" />}
         <RecordForm
           key={facility.id}
           sections={sections}
           initial={facilityValues(sections, facility)}
           defaults={{}}
           submitLabel="Save changes"
+          onCancel={() => switchTo("view")}
           onSubmit={async (payload) => {
             const result = await updateFacility(id, payload);
-            state.reload();
-            return facilityValues(sections, result.facility);
+            state.replace((d) => ({ ...d, facility: result.facility }));
+            state.reload(); // refreshes names and activity
+            setFlash("Changes saved.");
+            switchTo("view");
           }}
         />
-        <aside className="record-aside">
+      </>
+    );
+  }
+
+  return <FacilityProfile detail={state.data} flash={flash} onEdit={() => switchTo("edit")} />;
+}
+
+/** The read-only facility profile (presentational; FacilityScreen loads the data and owns edit mode). */
+export function FacilityProfile({ detail, flash, onEdit }: { detail: FacilityDetail; flash: string | null; onEdit: () => void }) {
+  const { facility, assignments, sourceOwned, events } = detail;
+  const address = addressLines(facility.address);
+  return (
+    <>
+      <ProfileHeader
+        back={facilitiesBack}
+        badge={facility.abbreviation ? <span className="facility-badge facility-badge-lg">{facility.abbreviation}</span> : <Avatar name={facility.name} size="lg" />}
+        title={facility.name}
+        meta={[facilityType(facility), facility.address.city, facilityStatus(facility)]}
+        action={
+          <button type="button" className="button button-primary-sm" onClick={onEdit}>
+            Edit facility
+          </button>
+        }
+      />
+      {flash && <p className="record-banner" role="status">{flash}</p>}
+      <div className="profile-layout">
+        <div className="profile-main">
+          <ProfileSection title="Location">
+            {address.length > 0 || facility.county ? (
+              <address className="profile-address">
+                {address.map((line) => (
+                  <span key={line}>{line}</span>
+                ))}
+                {facility.county && <span className={address.length > 0 ? "muted" : undefined}>{facility.county} County</span>}
+              </address>
+            ) : (
+              <p className="profile-empty">No address recorded.</p>
+            )}
+          </ProfileSection>
+          <ProfileSection title="Contact">
+            <DetailList items={facilityContact(facility)} empty="No phone, fax or email recorded." />
+          </ProfileSection>
+          <ProfileSection
+            title="Assigned staff"
+            action={
+              <Link className="text-link profile-section-link" href={`/schedule?view=facilities&facility=${encodeURIComponent(facility.id)}`}>
+                View schedule
+              </Link>
+            }
+          >
+            <LinkRows
+              rows={assignments.map((a) => ({ id: a.id, label: a.staff.displayName, href: `/employees/${a.staff.id}`, detail: ASSIGNMENT_LABELS[a.type] ?? a.type }))}
+              empty="No staff assigned."
+            />
+          </ProfileSection>
+          <ProfileSection title="Additional information">
+            <DetailList items={facilityAdditional(detail)} />
+          </ProfileSection>
+        </div>
+        <aside className="profile-aside">
           {sourceOwned && <SourceNote source="Master HIM 1" />}
-          <section className="panel">
-            <h2>Also known as</h2>
-            {otherNames.length === 0 ? (
-              <p className="panel-note">No other names.</p>
-            ) : (
-              <ul className="record-list">
-                {otherNames.map((a) => (
-                  <li key={a.id}>
-                    {a.alias}
-                    <span className="muted">{a.type.replace(/_/g, " ")}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="panel-note">A renamed facility keeps its old name here, so trackers that still use it find this record.</p>
-          </section>
-          <section className="panel">
-            <h2>Staff assigned</h2>
-            {assignments.length === 0 ? (
-              <p className="panel-note">None.</p>
-            ) : (
-              <ul className="record-list">
-                {assignments.map((a) => (
-                  <li key={a.id}>
-                    <Link className="table-link" href={`/employees/${a.staff.id}`}>
-                      {a.staff.displayName}
-                    </Link>
-                    <span className="muted">{ASSIGNMENT_LABELS[a.type] ?? a.type}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
           <History events={events} />
         </aside>
       </div>
@@ -237,47 +325,12 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
 
 // ---------------------------------------------------------------------------
 
-function SourceNote({ source }: { source: string }) {
-  return (
-    <p className="panel record-source">
-      First imported from {source}. If that spreadsheet is imported again, anything changed here shows up as a proposed update for review, never
-      applied on its own.
-    </p>
-  );
-}
+type Mode = "view" | "edit";
 
-const ACTION_LABELS: Record<string, string> = {
-  created: "Created",
-  updated: "Changed",
-  alias_added: "Name added",
-  alias_removed: "Name removed",
-  person_linked: "Sign-in account linked",
-  person_unlinked: "Sign-in account unlinked",
-};
-
-/** Who changed what, and when. The API records field names only, never values. */
-function History({ events }: { events: OrgEvent[] }) {
-  const recent = events.slice(0, 12);
+function BackButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <section className="panel">
-      <h2>History</h2>
-      {recent.length === 0 ? (
-        <p className="panel-note">No changes recorded.</p>
-      ) : (
-        <ul className="record-list record-history">
-          {recent.map((e, i) => (
-            <li key={`${e.at}-${i}`}>
-              <span>
-                {ACTION_LABELS[e.action] ?? e.action}
-                {e.action === "updated" && e.fields.length > 0 && <span className="muted"> {e.fields.map((f) => f.replace(/_/g, " ")).join(", ")}</span>}
-              </span>
-              <span className="muted">
-                {e.actor.startsWith("import:") ? "Import" : e.actor} · {formatDate(e.at)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <button type="button" className="back-link back-button" onClick={onClick}>
+      ← {label}
+    </button>
   );
 }
