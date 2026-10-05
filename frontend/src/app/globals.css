@@ -202,3 +202,112 @@ button { font: inherit; color: inherit; }
 .auth-card .fine-print { color: var(--text-faint); font-size: 12px; margin-top: 16px; }
 .text-link { color: var(--accent); }
 .text-link:hover { text-decoration: underline; }
+
+/* ── Schedule ──────────────────────────────────────────── */
+/* The board needs the full width; other pages keep the reading width. */
+.main:has(.schedule) { max-width: none; }
+.schedule-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.week-nav { display: flex; align-items: center; gap: 6px; }
+.week-label { margin-left: 8px; font-weight: 600; white-space: nowrap; }
+.schedule-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.schedule-filters .search { width: 190px; }
+.select {
+  padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--text); font: inherit; font-size: 13px; max-width: 220px;
+}
+.check { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; cursor: pointer; }
+.schedule-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.schedule-foot .section-note { margin: 0; }
+.notice-dismiss { margin-left: auto; background: none; border: 0; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; }
+.button-primary-sm { background: var(--accent); border-color: var(--accent); color: #0e1a24; font-weight: 600; }
+.button-primary-sm:hover:not(:disabled) { color: #0e1a24; filter: brightness(1.08); border-color: var(--accent); }
+.button-quiet { border-color: transparent; background: none; }
+.button-danger { border-color: var(--caution-border); color: var(--caution); }
+.button-danger:hover:not(:disabled) { color: var(--caution); border-color: var(--caution); }
+
+.board-wrap { max-height: calc(100vh - 220px); overflow: auto; }
+.board { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; min-width: 960px; }
+.board th, .board td { border-bottom: 1px solid var(--border); border-left: 1px solid var(--border); vertical-align: top; }
+.board thead th {
+  position: sticky; top: 0; z-index: 2; background: var(--surface); text-align: left;
+  font-weight: 500; font-size: 12px; color: var(--text-muted); padding: 8px 10px; white-space: nowrap;
+}
+.board thead th.is-today { color: var(--accent); }
+.board .day-weekday { font-weight: 600; }
+.board .board-corner, .board .board-rowhead { position: sticky; left: 0; z-index: 1; background: var(--surface); border-left: 0; width: 180px; }
+.board .board-corner { z-index: 3; }
+.board-rowhead { text-align: left; padding: 8px 12px; font-weight: 500; }
+.rowhead-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowhead-sub { display: block; font-size: 11px; font-weight: 400; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board tbody tr:last-child > * { border-bottom: 0; }
+.board-cell { position: relative; padding: 4px 4px 22px; min-height: 52px; min-width: 0; overflow: hidden; }
+.board-cell.is-today { background: rgba(125, 180, 220, 0.04); }
+.board-elsewhere .board-rowhead, .board-elsewhere .board-cell { background: var(--surface-muted); }
+.chip-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.chip {
+  width: 100%; display: flex; align-items: baseline; gap: 6px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--surface-muted); border-radius: 5px;
+  padding: 3px 7px; font-size: 12px; line-height: 1.35; color: var(--text); position: relative;
+  min-width: 0; overflow: hidden;
+}
+.chip:hover { border-color: var(--accent); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chip-main { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+/* The time (AM, PM, 9a–5p) always shows; a long name truncates instead (full text in the tooltip). */
+.chip-sub { color: var(--text-muted); font-size: 11px; white-space: nowrap; margin-left: auto; flex: none; }
+.chip-note { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; align-self: center; }
+.chip-coverage { border-color: #3d5568; background: var(--accent-soft); }
+.chip-admin, .chip-clinic { border-style: dashed; }
+.chip-pto, .chip-off { background: var(--caution-soft); border-color: var(--caution-border); color: var(--caution); }
+.chip-pto .chip-sub, .chip-off .chip-sub { color: var(--caution); opacity: 0.8; }
+.cell-add {
+  position: absolute; left: 4px; right: 4px; bottom: 3px; height: 17px; border: 0; border-radius: 4px;
+  background: none; color: var(--text-faint); cursor: pointer; opacity: 0; font-size: 13px; line-height: 1;
+}
+.board-cell:hover .cell-add, .cell-add:focus-visible { opacity: 1; }
+.cell-add:hover { background: var(--surface-muted); color: var(--text); }
+.board-cell:has(.chip-list) { padding-bottom: 22px; }
+.board-cell:not(:has(.chip-list)) .cell-add { top: 3px; height: auto; }
+@media (hover: none) { .cell-add { opacity: 0.6; } }
+
+/* Editor dialog */
+.editor {
+  width: min(460px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border-strong); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+}
+.editor::backdrop { background: rgba(0, 0, 0, 0.55); }
+.editor form { padding: 18px 20px 16px; display: grid; gap: 12px; }
+.editor-head { display: flex; justify-content: space-between; align-items: center; }
+.editor-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.editor-close { background: none; border: 0; color: var(--text-faint); font-size: 20px; line-height: 1; cursor: pointer; }
+.editor-close:hover { color: var(--text); }
+.field { display: grid; gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; align-content: start; }
+.field .segmented { justify-self: start; }
+.field label, .field legend { font-size: 12px; color: var(--text-muted); padding: 0; margin-bottom: 4px; }
+.field select, .field input, .field textarea {
+  width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-strong);
+  background: var(--bg); color: var(--text); font: inherit; font-size: 13px;
+}
+.field textarea { resize: vertical; }
+.field :is(select, input, textarea):focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.field-hint { font-size: 11px; color: var(--text-faint); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.time-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.time-row input { width: 120px; }
+.editor-feedback { border: 1px solid var(--caution-border); background: var(--caution-soft); color: var(--caution); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.editor-feedback p { margin: 0; }
+.editor-feedback ul { margin: 4px 0 0; padding-left: 18px; }
+.editor-feedback.is-blocking { border-color: var(--caution); }
+.feedback-title { font-weight: 600; }
+.editor-actions { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.editor-actions-main { margin-left: auto; display: flex; gap: 8px; }
+.delete-confirm { font-size: 12px; color: var(--text-muted); }
+.editor .button { font-size: 13px; padding: 6px 12px; }
+
+@media (max-width: 760px) {
+  .schedule-filters .search, .select { width: 100%; max-width: none; }
+  .schedule-filters { width: 100%; }
+  .board-wrap { max-height: none; }
+  .board .board-corner, .board .board-rowhead { width: 116px; }
+  .board-rowhead { padding: 8px; }
+}
