@@ -42,7 +42,7 @@ export function upstreamError(error: unknown, context: string) {
     if (error.status === 400) return errorResponse(400, "INVALID", message ?? "Check the entry and try again.", { errors: body.errors ?? [] });
     if (error.status === 409) {
       const code = body.code === "warnings" ? "WARNINGS" : "CONFLICT";
-      return errorResponse(409, code, message ?? "This conflicts with the schedule.", { conflicts: body.conflicts ?? [], warnings: body.warnings ?? [] });
+      return errorResponse(409, code, message ?? "This conflicts with an existing record.", { conflicts: body.conflicts ?? [], warnings: body.warnings ?? [], errors: body.errors ?? [] });
     }
     return errorResponse(error.status === 503 ? 503 : 502, "UPSTREAM_ERROR", "The ORCA API couldn't complete this. Try again in a moment.");
   }
