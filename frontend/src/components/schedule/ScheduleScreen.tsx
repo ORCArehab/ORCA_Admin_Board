@@ -2,16 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
-import { copyWeek, type SaveResult } from "@/lib/schedule/api";
+import { copyWeek, createAssignment, deleteAssignment, ScheduleError, updateAssignment, type SaveResult } from "@/lib/schedule/api";
 import { isProvider, type BoardFilters } from "@/lib/schedule/board";
-import { facilityShort } from "@/lib/schedule/format";
-import type { Assignment } from "@/lib/schedule/types";
+import { copyInput, planDrop, type DropTarget } from "@/lib/schedule/dragDrop";
+import { facilityShort, TYPE_LABELS } from "@/lib/schedule/format";
+import type { Assignment, AssignmentInput, FacilityRecord, Issue, ScheduleBoardData, StaffRecord } from "@/lib/schedule/types";
 import { useScheduleBoard } from "@/lib/schedule/useScheduleBoard";
-import { addDays, weekLabel, weekStart as weekStartOf } from "@/lib/schedule/week";
+import { addDays, dayHeading, weekLabel, weekStart as weekStartOf } from "@/lib/schedule/week";
 import { AssignmentEditor } from "./AssignmentEditor";
+import { QuickAdd } from "./QuickAdd";
 import { ScheduleBoard, type BoardView, type NewEntryPrefill } from "./ScheduleBoard";
 
 type Editing = { existing: Assignment; prefill: null } | { existing: null; prefill: NewEntryPrefill } | null;
+type Quick = { prefill: NewEntryPrefill; anchor: HTMLElement } | null;
+type Toast = { message: string; undo?: () => Promise<unknown> } | null;
+/** A move or copy the API wants confirmed (warnings), or refused (conflicts). */
+type DropIssue = { entry: Assignment; input: AssignmentInput; copy: boolean; kind: "warnings" | "conflicts"; issues: Issue[] } | null;
+
+const toInput = (a: Assignment): AssignmentInput => copyInput(a, {});
+
+/** Adds or replaces entries (and any staff or facility they bring) in the board's data. */
+function withEntries(data: ScheduleBoardData, result: SaveResult & { staff?: StaffRecord[]; facilities?: FacilityRecord[] }): ScheduleBoardData {
+  const inWeek = result.assignment.date >= data.from && result.assignment.date <= data.to;
+  const others = data.assignments.filter((a) => a.id !== result.assignment.id);
+  return {
+    ...data,
+    assignments: inWeek ? [...others, result.assignment] : others,
+    staff: [...data.staff, ...(result.staff ?? []).filter((s) => !data.staff.some((x) => x.id === s.id))],
+    facilities: [...data.facilities, ...(result.facilities ?? []).filter((f) => !data.facilities.some((x) => x.id === f.id))],
+  };
+}
 
 /** Operations scheduling: the weekly board, its filters, and the entry editor. */
 export function ScheduleScreen({ today, initialWeekStart, initialView }: { today: string; initialWeekStart: string; initialView: BoardView }) {
@@ -19,6 +39,9 @@ export function ScheduleScreen({ today, initialWeekStart, initialView }: { today
   const [view, setView] = useState<BoardView>(initialView);
   const [filters, setFilters] = useState<BoardFilters>({ search: "", staffId: null, facilityId: null, showAll: false });
   const [editing, setEditing] = useState<Editing>(null);
+  const [quick, setQuick] = useState<Quick>(null);
+  const [toast, setToast] = useState<Toast>(null);
+  const [dropIssue, setDropIssue] = useState<DropIssue>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const board = useScheduleBoard(weekStart);
@@ -36,7 +59,82 @@ export function ScheduleScreen({ today, initialWeekStart, initialView }: { today
   const goTo = (start: string) => {
     setWeekStart(start);
     setNotice(null);
+    setQuick(null);
+    setDropIssue(null);
   };
+
+  // Toasts fade on their own; a newer one replaces the last.
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), toast.undo ? 8000 : 5000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  function describe(a: Assignment) {
+    const data = board.status === "ready" ? board.data : null;
+    const person = data?.staff.find((s) => s.id === a.staffId)?.displayName ?? "Entry";
+    const place = a.facilityId ? facilityShort(data?.facilities.find((f) => f.id === a.facilityId)) : TYPE_LABELS[a.type];
+    const day = dayHeading(a.date);
+    return `${person} · ${place} · ${day.weekday} ${day.day}`;
+  }
+
+  function closeQuick(returnFocus = true) {
+    const anchor = quick?.anchor;
+    setQuick(null);
+    if (returnFocus && anchor?.isConnected) anchor.focus();
+  }
+
+  function quickAdded(result: SaveResult) {
+    closeQuick();
+    board.update((d) => withEntries(d, result));
+    board.reload();
+    setToast({
+      message: `Added ${describe(result.assignment)}${result.warnings.length ? ` (with ${result.warnings.length === 1 ? "a warning" : "warnings"})` : ""}`,
+      undo: () => deleteAssignment(result.assignment.id),
+    });
+  }
+
+  async function undo() {
+    const action = toast?.undo;
+    setToast(null);
+    if (!action) return;
+    try {
+      await action();
+      board.reload();
+      setToast({ message: "Undone." });
+    } catch (error) {
+      setToast({ message: error instanceof Error ? `Couldn't undo: ${error.message}` : "Couldn't undo." });
+    }
+  }
+
+  /** Drop = move (PATCH) or, with Alt/Option, copy (POST), through the same API and clash checks as the editor. */
+  async function dropped(entry: Assignment, target: DropTarget, copy: boolean, confirmWarnings = false, prepared?: AssignmentInput) {
+    let input = prepared;
+    if (!input) {
+      const plan = planDrop(entry, target);
+      if (plan.kind === "none") return;
+      if (plan.kind === "invalid") {
+        setToast({ message: plan.message });
+        return;
+      }
+      input = copyInput(entry, plan.changes);
+    }
+    setDropIssue(null);
+    try {
+      const result = copy ? await createAssignment({ ...input, confirmWarnings }) : await updateAssignment(entry.id, { ...input, confirmWarnings });
+      board.update((d) => withEntries(d, result));
+      board.reload();
+      const before = toInput(entry);
+      setToast({
+        message: `${copy ? "Copied" : "Moved"} ${describe(result.assignment)}`,
+        undo: copy ? () => deleteAssignment(result.assignment.id) : () => updateAssignment(entry.id, { ...before, confirmWarnings: true }),
+      });
+    } catch (error) {
+      if (error instanceof ScheduleError && error.needsConfirmation) setDropIssue({ entry, input, copy, kind: "warnings", issues: error.warnings });
+      else if (error instanceof ScheduleError && error.conflicts.length > 0) setDropIssue({ entry, input, copy, kind: "conflicts", issues: error.conflicts });
+      else setToast({ message: `Couldn't ${copy ? "copy" : "move"} it: ${error instanceof ScheduleError && error.errors.length ? error.errors.join(" ") : error instanceof Error ? error.message : "unknown error"}` });
+    }
+  }
 
   function saved(result: SaveResult) {
     setEditing(null);
@@ -127,15 +225,49 @@ export function ScheduleScreen({ today, initialWeekStart, initialView }: { today
             Show all
           </label>
           <div className="segmented" role="group" aria-label="View">
-            <button type="button" className="segment" aria-pressed={view === "providers"} onClick={() => setView("providers")}>
+            <button type="button" className="segment" aria-pressed={view === "providers"} onClick={() => {
+                setView("providers");
+                setQuick(null);
+              }}>
               Providers
             </button>
-            <button type="button" className="segment" aria-pressed={view === "facilities"} onClick={() => setView("facilities")}>
+            <button type="button" className="segment" aria-pressed={view === "facilities"} onClick={() => {
+                setView("facilities");
+                setQuick(null);
+              }}>
               Facilities
             </button>
           </div>
         </div>
       </div>
+
+      {dropIssue && (
+        <div className="notice" role="alert">
+          <div>
+            <p className="feedback-title">
+              {dropIssue.kind === "conflicts" ? `Not ${dropIssue.copy ? "copied" : "moved"} — this clashes:` : `Check before ${dropIssue.copy ? "copying" : "moving"}:`}
+            </p>
+            <ul className="notice-list">
+              {dropIssue.issues.map((i, n) => (
+                <li key={n}>{i.message}</li>
+              ))}
+            </ul>
+            {dropIssue.kind === "warnings" && (
+              <div className="quick-confirm">
+                <button type="button" className="button button-primary-sm" onClick={() => dropped(dropIssue.entry, { date: dropIssue.input.date }, dropIssue.copy, true, dropIssue.input)}>
+                  {dropIssue.copy ? "Copy anyway" : "Move anyway"}
+                </button>
+                <button type="button" className="button" onClick={() => setDropIssue(null)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+          <button type="button" className="notice-dismiss" onClick={() => setDropIssue(null)} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div className="notice" role="status">
@@ -156,8 +288,18 @@ export function ScheduleScreen({ today, initialWeekStart, initialView }: { today
             today={today}
             view={view}
             filters={filters}
-            onEdit={(existing) => setEditing({ existing, prefill: null })}
-            onCreate={(prefill) => setEditing({ existing: null, prefill })}
+            onEdit={(existing) => {
+              closeQuick(false);
+              setEditing({ existing, prefill: null });
+            }}
+            onQuickAdd={(prefill, anchor) => {
+              setDropIssue(null);
+              setQuick({ prefill, anchor });
+            }}
+            onDrop={(entry, target, copy) => {
+              closeQuick(false);
+              void dropped(entry, target, copy);
+            }}
           />
           <div className="schedule-foot">
             <span className="section-note">
@@ -168,6 +310,35 @@ export function ScheduleScreen({ today, initialWeekStart, initialView }: { today
             </button>
           </div>
         </>
+      )}
+
+      {quick && data && (
+        <QuickAdd
+          key={`${quick.prefill.date}:${quick.prefill.staffId ?? quick.prefill.facilityId}`}
+          data={data}
+          context={quick.prefill}
+          anchor={quick.anchor}
+          onClose={() => closeQuick()}
+          onCreated={quickAdded}
+          onOpenFullForm={(prefill) => {
+            closeQuick(false);
+            setEditing({ existing: null, prefill });
+          }}
+        />
+      )}
+
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast.message}</span>
+          {toast.undo && (
+            <button type="button" className="toast-undo" onClick={undo}>
+              Undo
+            </button>
+          )}
+          <button type="button" className="notice-dismiss" onClick={() => setToast(null)} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
       )}
 
       {editing && data && (

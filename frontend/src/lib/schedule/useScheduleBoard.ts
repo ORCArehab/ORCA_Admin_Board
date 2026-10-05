@@ -16,7 +16,7 @@ type Result = { key: string; weekStart: string; data: ScheduleBoardData } | { ke
 const toApiError = (err: unknown) => (err instanceof ApiError ? err : new ApiError(0, "UNKNOWN", "Unexpected error."));
 
 /** One week of the board. Switching weeks keeps the last week on screen until the new one arrives. */
-export function useScheduleBoard(weekStart: string): BoardState & { reload: () => void } {
+export function useScheduleBoard(weekStart: string): BoardState & { reload: () => void; update: (change: (data: ScheduleBoardData) => ScheduleBoardData) => void } {
   const [version, setVersion] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const key = `${weekStart}#${version}`;
@@ -34,9 +34,14 @@ export function useScheduleBoard(weekStart: string): BoardState & { reload: () =
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
+  /** Shows a saved change on the board at once; call reload() after to confirm it from the API. */
+  const update = useCallback((change: (data: ScheduleBoardData) => ScheduleBoardData) => {
+    setResult((r) => (r && "data" in r ? { ...r, data: change(r.data) } : r));
+  }, []);
+
   let state: BoardState;
   if (!result) state = { status: "loading" };
   else if ("error" in result) state = result.key === key ? { status: "error", error: result.error } : { status: "loading" };
   else state = { status: "ready", data: result.data, weekStart: result.weekStart, loading: result.key !== key };
-  return { ...state, reload };
+  return { ...state, reload, update };
 }

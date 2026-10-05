@@ -40,13 +40,13 @@ function initialForm(existing: Assignment | null, prefill: NewEntryPrefill | nul
   return {
     staffId: prefill?.staffId ?? "",
     date: prefill?.date ?? "",
-    type: "facility",
+    type: prefill?.type ?? "facility",
     facilityId: prefill?.facilityId ?? "",
-    coveringStaffId: "",
-    timeBlock: "all_day",
-    startTime: "09:00",
-    endTime: "17:00",
-    notes: "",
+    coveringStaffId: prefill?.coveringStaffId ?? "",
+    timeBlock: prefill?.timeBlock ?? "all_day",
+    startTime: prefill?.startTime ?? "09:00",
+    endTime: prefill?.endTime ?? "17:00",
+    notes: prefill?.notes ?? "",
   };
 }
 
