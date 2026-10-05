@@ -8,7 +8,10 @@ export type OrgResource<T> = { status: "loading" } | { status: "error"; error: A
 const toApiError = (err: unknown) => (err instanceof ApiError ? err : new ApiError(0, "UNKNOWN", "Unexpected error."));
 
 /** Loads an organization record or list. Always fresh: these pages are where it gets edited. */
-export function useOrgResource<T>(load: () => Promise<T>, deps: readonly unknown[]): OrgResource<T> & { reload: () => void } {
+export function useOrgResource<T>(
+  load: () => Promise<T>,
+  deps: readonly unknown[],
+): OrgResource<T> & { reload: () => void; replace: (update: (data: T) => T) => void } {
   const [state, setState] = useState<OrgResource<T>>({ status: "loading" });
   const [version, setVersion] = useState(0);
 
@@ -26,5 +29,7 @@ export function useOrgResource<T>(load: () => Promise<T>, deps: readonly unknown
   }, [...deps, version]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
-  return { ...state, reload };
+  /** Shows a saved record immediately (from the save response) while a reload confirms it. */
+  const replace = useCallback((update: (data: T) => T) => setState((s) => (s.status === "ready" ? { status: "ready", data: update(s.data) } : s)), []);
+  return { ...state, reload, replace };
 }

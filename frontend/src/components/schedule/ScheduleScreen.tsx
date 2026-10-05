@@ -34,10 +34,23 @@ function withEntries(data: ScheduleBoardData, result: SaveResult & { staff?: Sta
 }
 
 /** Operations scheduling: the weekly board, its filters, and the entry editor. */
-export function ScheduleScreen({ today, initialWeekStart, initialView }: { today: string; initialWeekStart: string; initialView: BoardView }) {
+export function ScheduleScreen({
+  today,
+  initialWeekStart,
+  initialView,
+  initialStaffId = null,
+  initialFacilityId = null,
+}: {
+  today: string;
+  initialWeekStart: string;
+  initialView: BoardView;
+  /** Preselected filters from a profile's "View schedule" link. */
+  initialStaffId?: string | null;
+  initialFacilityId?: string | null;
+}) {
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [view, setView] = useState<BoardView>(initialView);
-  const [filters, setFilters] = useState<BoardFilters>({ search: "", staffId: null, facilityId: null, showAll: false });
+  const [filters, setFilters] = useState<BoardFilters>({ search: "", staffId: initialStaffId, facilityId: initialFacilityId, showAll: false });
   const [editing, setEditing] = useState<Editing>(null);
   const [quick, setQuick] = useState<Quick>(null);
   const [toast, setToast] = useState<Toast>(null);

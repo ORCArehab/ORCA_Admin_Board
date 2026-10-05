@@ -427,3 +427,93 @@ button { font: inherit; color: inherit; }
 @media (max-width: 600px) {
   .record-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Directories (Employees, Facilities): for finding a record, not reading it ── */
+.directory-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.directory-toolbar .table-count { margin-left: auto; }
+.directory { list-style: none; margin: 0; padding: 0; }
+.directory li + li { border-top: 1px solid var(--border); }
+.directory-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 180px) 110px 16px; align-items: center; gap: 16px;
+  min-height: 60px; padding: 10px 12px; margin: 0 -12px; border-radius: var(--radius);
+}
+.directory-row:hover { background: var(--surface); }
+.directory-row:hover .directory-chevron { color: var(--text-muted); transform: translateX(2px); }
+.directory-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.directory-main { display: grid; gap: 2px; min-width: 0; }
+.directory-name { font-size: 15px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directory-sub { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directory-col { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directory-state { display: flex; gap: 8px; justify-content: flex-end; font-size: 12px; }
+.directory-chevron { color: var(--text-faint); font-size: 18px; line-height: 1; transition: transform 0.12s, color 0.12s; }
+.directory-row.is-former .directory-name { color: var(--text-muted); }
+.directory-row.is-former .avatar, .directory-row.is-former .facility-badge { opacity: 0.55; }
+.directory-empty { color: var(--text-faint); padding: 32px 0; }
+.state-current { color: var(--accent); }
+.state-former { color: var(--text-faint); }
+.state-note { color: var(--caution); }
+@media (max-width: 760px) {
+  .directory-row { grid-template-columns: auto minmax(0, 1fr) auto 16px; gap: 12px; }
+  .directory-col { display: none; }
+}
+
+.avatar {
+  display: inline-grid; place-items: center; flex: none; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent); font-weight: 600; letter-spacing: 0.02em;
+}
+.avatar-sm { width: 36px; height: 36px; font-size: 13px; }
+.avatar-lg { width: 64px; height: 64px; font-size: 22px; }
+.facility-badge {
+  display: inline-grid; place-items: center; flex: none; min-width: 52px; height: 36px; padding: 0 8px;
+  border-radius: 8px; background: var(--surface-muted); color: var(--text-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
+}
+.facility-badge-lg { min-width: 72px; height: 64px; font-size: 17px; border-radius: 12px; color: var(--text); }
+
+/* ── Profiles (read-only by default) ───────────────────── */
+.profile-header { margin-bottom: 28px; }
+.profile-identity { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 4px; }
+.profile-names { flex: 1; min-width: 220px; }
+.profile-names h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.015em; }
+.profile-subtitle { margin: 4px 0 0; font-size: 15px; color: var(--text-muted); }
+.profile-meta { margin: 6px 0 0; font-size: 13px; color: var(--text-faint); }
+.profile-action { align-self: flex-start; padding-top: 6px; }
+.profile-action .button { font-size: 13px; padding: 7px 14px; }
+
+.profile-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 56px; align-items: start; }
+.profile-main { display: grid; gap: 0; min-width: 0; }
+.profile-section { padding: 22px 0 26px; border-top: 1px solid var(--border); }
+.profile-section:first-child { border-top: 0; padding-top: 0; }
+.profile-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.profile-section h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.profile-section-link { font-size: 13px; }
+
+.detail-list { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 32px; }
+.detail-item { min-width: 0; }
+.detail-item dt { font-size: 12px; color: var(--text-faint); margin-bottom: 3px; }
+.detail-item dd { margin: 0; font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
+@media (max-width: 600px) { .detail-list { grid-template-columns: 1fr; } }
+
+.link-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.link-rows a { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 8px 10px; margin: 0 -10px; border-radius: 6px; }
+.link-rows a:hover { background: var(--surface); }
+.link-rows a:hover .link-rows-label { color: var(--accent); }
+.link-rows-label { font-size: 15px; color: var(--text); }
+.link-rows-detail { font-size: 13px; color: var(--text-faint); white-space: nowrap; }
+.profile-address { font-style: normal; display: grid; gap: 2px; font-size: 15px; }
+.profile-empty { margin: 0; font-size: 14px; color: var(--text-faint); }
+.profile-note { margin: 12px 0 0; font-size: 12px; color: var(--text-faint); }
+.profile-note-lead { margin: 0 0 12px; font-size: 14px; color: var(--text-muted); }
+
+/* Secondary column: source and activity, deliberately quiet. */
+.profile-aside { display: grid; gap: 24px; position: sticky; top: 24px; color: var(--text-muted); }
+.profile-source { margin: 0 0 20px; font-size: 12px; line-height: 1.55; color: var(--text-faint); }
+.profile-aside .profile-source { margin: 0; }
+.profile-history h2 { margin: 0 0 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.profile-history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 12px; }
+.profile-history li { display: grid; gap: 1px; color: var(--text-muted); }
+.profile-history .muted { color: var(--text-faint); }
+@media (max-width: 960px) {
+  .profile-layout { grid-template-columns: 1fr; gap: 8px; }
+  .profile-aside { position: static; padding-top: 22px; border-top: 1px solid var(--border); }
+}
+.back-button { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }

@@ -2,15 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { DataTable, type Column } from "@/components/DataTable";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { listFacilities } from "@/lib/org/api";
-import { FACILITY_TYPE_LABELS, labelFor, OPERATIONAL_STATUS_LABELS, OPERATIONAL_STATUSES, type Facility } from "@/lib/org/types";
+import { facilityStatus, facilityType } from "@/lib/org/profile";
+import { OPERATIONAL_STATUS_LABELS, OPERATIONAL_STATUSES, type Facility } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 
-const facilityHref = (f: Facility) => `/facilities/${f.id}`;
-
-/** Every facility in the organization records, searchable; each row opens the editor. */
+/** Finding a facility: abbreviation, name, city and type. Each row opens the profile. */
 export function FacilityList() {
   const state = useOrgResource(listFacilities, []);
   const [query, setQuery] = useState("");
@@ -27,31 +25,12 @@ export function FacilityList() {
     );
   }, [all, query, status]);
 
-  const columns: Column<Facility>[] = [
-    {
-      key: "name",
-      header: "Facility",
-      render: (f) => (
-        <Link className="table-link" href={facilityHref(f)}>
-          {f.abbreviation && <span className="abbr">{f.abbreviation}</span>}
-          {f.name}
-        </Link>
-      ),
-    },
-    { key: "type", header: "Type", render: (f) => labelFor(FACILITY_TYPE_LABELS, f.type) },
-    { key: "status", header: "Status", render: (f) => <span className={`status status-${f.operationalStatus}`}>{labelFor(OPERATIONAL_STATUS_LABELS, f.operationalStatus)}</span> },
-    { key: "city", header: "City", render: (f) => f.address.city ?? <span className="muted">—</span> },
-    { key: "region", header: "Region", render: (f) => f.region ?? <span className="muted">—</span> },
-    { key: "phone", header: "Phone", render: (f) => f.phone ?? <span className="muted">—</span> },
-    { key: "number", header: "Facility #", render: (f) => <span className="muted num">{f.facilityNumber}</span> },
-  ];
-
   const archived = all.filter((f) => f.archivedAt !== null).length;
   return (
     <>
       <PageHeader
         title="Facilities"
-        description="Facility records shared by every ORCA app. Changes here show up in the portal, NOVA and the schedule."
+        description="Facility records shared by every ORCA app."
         aside={
           <Link className="button button-primary-sm" href="/facilities/new">
             + New facility
@@ -62,24 +41,49 @@ export function FacilityList() {
       {state.status === "error" && <ErrorState error={state.error} />}
       {state.status === "ready" && (
         <>
-          <div className="table-toolbar">
-            <div className="schedule-filters">
-              <input className="search" type="search" placeholder="Search name, abbreviation, city" aria-label="Search facilities" value={query} onChange={(e) => setQuery(e.target.value)} />
-              <select className="select" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">All statuses</option>
-                {OPERATIONAL_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {OPERATIONAL_STATUS_LABELS[s]}
-                  </option>
-                ))}
-                {archived > 0 && <option value="archived">Archived ({archived})</option>}
-              </select>
-            </div>
+          <div className="directory-toolbar">
+            <input className="search" type="search" placeholder="Search name, abbreviation, city" aria-label="Search facilities" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <select className="select" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">All statuses</option>
+              {OPERATIONAL_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {OPERATIONAL_STATUS_LABELS[s]}
+                </option>
+              ))}
+              {archived > 0 && <option value="archived">Archived ({archived})</option>}
+            </select>
             <span className="table-count">{`${rows.length} ${rows.length === 1 ? "facility" : "facilities"}`}</span>
           </div>
-          <DataTable caption="Facilities" columns={columns} rows={rows} rowKey={(f) => f.id} rowHref={facilityHref} emptyMessage="No facilities match these filters." />
+          {rows.length === 0 ? (
+            <p className="directory-empty">No facilities match these filters.</p>
+          ) : (
+            <ul className="directory" aria-label="Facilities">
+              {rows.map((f) => (
+                <FacilityRow key={f.id} facility={f} />
+              ))}
+            </ul>
+          )}
         </>
       )}
     </>
+  );
+}
+
+export function FacilityRow({ facility: f }: { facility: Facility }) {
+  // Only call out a status worth noticing; active is the normal case.
+  const status = f.archivedAt || f.operationalStatus !== "active" ? facilityStatus(f) : null;
+  return (
+    <li>
+      <Link className={`directory-row${f.archivedAt || f.operationalStatus === "inactive" ? " is-former" : ""}`} href={`/facilities/${f.id}`}>
+        <span className="facility-badge">{f.abbreviation ?? "—"}</span>
+        <span className="directory-main">
+          <span className="directory-name">{f.name}</span>
+          {f.address.city && <span className="directory-sub">{f.address.city}</span>}
+        </span>
+        <span className="directory-col">{facilityType(f) ?? ""}</span>
+        <span className="directory-state">{status && <span className="state-note">{status}</span>}</span>
+        <span className="directory-chevron" aria-hidden="true">›</span>
+      </Link>
+    </li>
   );
 }
