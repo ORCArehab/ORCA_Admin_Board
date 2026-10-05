@@ -27,7 +27,7 @@ npm run build
 - **Sign-in:** Google (Auth.js), using the employee portal's OAuth client, limited to the ORCA Workspace domain.
   The Google ID token is exchanged at `POST /v1/identity/sessions` on the ORCA API with this app's key; only people
   with the **ADMIN** role get in. Roles are re-checked every 10 minutes, and the session ends if ADMIN is removed.
-- **Data:** the browser calls this app's own `/api/dashboard/{providers,scribes}`. Those routes run on the server and
+- **Data:** the browser calls this app's own `/api/dashboard/{providers,scribes}` and `/api/schedule/*`. Those routes run on the server and
   call the ORCA API with this app's key (`ORCA_API_KEY`, which is `ADMIN_API_KEY` in the API) plus the admin's user
   token. The API checks `dashboard.read` (ADMIN) on every request. No key or token ever reaches the browser.
 - **New admin features** (editing data and so on) should be added as API routes that check the role and record the
@@ -47,8 +47,11 @@ src/
     providers/[name]/page.tsx   provider detail
     scribes/page.tsx            scribe production: scope, summary, scribe table, weekly/monthly table
     scribes/[name]/page.tsx     scribe detail with daily/weekly/monthly production
+    (dashboard)/schedule/       Operations schedule: weekly board (?week=YYYY-MM-DD&view=facilities)
+    api/schedule/               board (one week + roster + facilities), assignments, assignments/[id], copy-week
   components/
-    Nav.tsx                     Overview / Providers / Scribes live; Facilities / ORCA AI shown as "Soon"
+    Nav.tsx                     Overview / Providers / Scribes / Schedule live; Facilities / ORCA AI shown as "Soon"
+    schedule/                   ScheduleScreen (toolbar, notices), ScheduleBoard (both views), AssignmentEditor (dialog)
     ui.tsx                      PageHeader, MetricStrip, Section, SourceNote, Loading/Error states
     DataTable.tsx               generic table (providers, scribes; facilities later)
     providers/                  provider-specific pieces (summary, attention list, table, completion cell)
@@ -62,6 +65,8 @@ src/
     periods.ts                  day/week/month labels clipped to the reporting period
     attention.ts                Needs attention criteria (explicit, not a score)
     format.ts                   number/percent/day formatting; missing values → "—"
+    apiRoute.ts                 server helpers for /api routes: user token, error mapping (keeps conflict/warning details)
+    schedule/                   schedule types, Monday weeks (week.ts), labels, board projections (board.ts), client + hook
 ```
 
 ## UI rules
@@ -74,3 +79,14 @@ src/
 - **Parser diagnostics stay out of the admin UI.** Providers with `dataStatus: "incomplete"` or flagged rows get a subtle "Some source data needs review". Details belong in a future data-quality view.
 - **Scribes are descriptive, not evaluative.** They're listed alphabetically, with no targets, rankings or completion. Notes uploaded sits beside notes produced and is never compared with it. The reporting period (V1 starts Aug 1, 2026) is always stated.
 - No charts yet. Neutral surfaces, one accent, one caution color, light and dark themes (`globals.css` tokens).
+
+## Schedule (Operations)
+
+The provider schedule lives in the ORCA API (`schedule_assignments`, `/v1/schedule`); this app manages it and the employee portal shows each provider their own ("My Schedule"). There is one copy of the data.
+
+- **Board.** A week (Monday–Sunday) of entries. **Providers** view: a row per provider, a column per day. **Facilities** view: the same entries by facility, with admin/clinic/PTO/off entries in a "Not at a facility" row. Rows show who has entries that week; **Show all** adds every current provider (physician, NP/PA), or every facility that is active or whose operational status isn't recorded yet (inactive and prospective ones stay selectable in the editor). Search, provider and facility filters narrow either view.
+- **Entries.** Click a chip to edit or delete it; click empty space in a cell to add one for that row and day; **+ Add entry** for anything else. Types: facility, coverage (optionally naming who is covered), admin, clinic, PTO, off. Times: AM, PM, all day, or custom hours. Notes are operational only, never patient information.
+- **Clashes** are decided by the API (ORCA_Backend_API `src/schedule/rules.ts`). Conflicts can't be saved and are explained in the editor; warnings (all-day overlap, inactive facility or provider, facility outside the provider's standing assignments) show first and save with **Save anyway**.
+- **Copy previous week** fills only the provider-days that are empty this week; nothing is overwritten.
+- **Data.** `GET /api/schedule/board` makes three ORCA API reads in parallel (the week's entries, `/v1/org/staff`, `/v1/org/facilities`) and returns one response, so names and facilities always come from the canonical organization records. The ORCA API lets this app read `/v1/org` (GET only) and manage `/v1/schedule` with ADMIN (`schedule.read_all`, `schedule.write`).
+- **Tests:** `src/lib/schedule/schedule.test.ts` (weeks, labels, and that both views draw the same entries).

@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Overview", href: "/", isActive: (p) => p === "/" },
   { label: "Providers", href: "/providers", isActive: (p) => p.startsWith("/providers") },
   { label: "Scribes", href: "/scribes", isActive: (p) => p.startsWith("/scribes") },
+  { label: "Schedule", href: "/schedule", isActive: (p) => p.startsWith("/schedule") },
   { label: "Facilities", href: "/facilities", soon: true },
   { label: "ORCA AI", href: "/ai", soon: true },
 ];
