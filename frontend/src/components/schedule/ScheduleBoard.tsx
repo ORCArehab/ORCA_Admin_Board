@@ -1,8 +1,10 @@
 "use client";
 
-import { facilityRows, providerRows, type BoardFilters, type BoardRow } from "@/lib/schedule/board";
+import { useState } from "react";
+import { facilityRows, NO_FACILITY_KEY, providerRows, type BoardFilters, type BoardRow } from "@/lib/schedule/board";
+import { planDrop, type DropTarget } from "@/lib/schedule/dragDrop";
 import { entryLabel, facilityShort, timeText, TYPE_LABELS } from "@/lib/schedule/format";
-import type { Assignment, FacilityRecord, ScheduleBoardData, StaffRecord } from "@/lib/schedule/types";
+import type { Assignment, AssignmentType, FacilityRecord, ScheduleBoardData, StaffRecord, TimeBlock } from "@/lib/schedule/types";
 import { dayHeading, weekDays } from "@/lib/schedule/week";
 
 export type BoardView = "providers" | "facilities";
@@ -12,13 +14,24 @@ export interface NewEntryPrefill {
   date: string;
   staffId?: string;
   facilityId?: string;
+  /** Carried over from quick add's "Open full form". */
+  type?: AssignmentType;
+  timeBlock?: TimeBlock;
+  startTime?: string;
+  endTime?: string;
+  coveringStaffId?: string;
+  notes?: string;
 }
 
 const ABSENT = new Set(["pto", "off"]);
 
+const DRAG_TYPE = "application/x-orca-assignment";
+
 /**
  * The weekly board. Rows are providers or facilities; both views draw the same entries.
- * Each chip opens its editor; empty space in a cell starts a new entry for that row and day.
+ *   click an empty cell → quick add (the row and day are already known)
+ *   click an entry → its full editor
+ *   drag an entry to another cell → move it there; hold Alt/Option while dropping → copy it
  */
 export function ScheduleBoard({
   data,
@@ -27,7 +40,8 @@ export function ScheduleBoard({
   view,
   filters,
   onEdit,
-  onCreate,
+  onQuickAdd,
+  onDrop,
 }: {
   data: ScheduleBoardData;
   weekStart: string;
@@ -35,8 +49,11 @@ export function ScheduleBoard({
   view: BoardView;
   filters: BoardFilters;
   onEdit: (assignment: Assignment) => void;
-  onCreate: (prefill: NewEntryPrefill) => void;
+  onQuickAdd: (prefill: NewEntryPrefill, anchor: HTMLElement) => void;
+  onDrop: (assignment: Assignment, target: DropTarget, copy: boolean) => void;
 }) {
+  const [dragging, setDragging] = useState<Assignment | null>(null);
+  const [over, setOver] = useState<{ key: string; copy: boolean } | null>(null);
   const days = weekDays(weekStart);
   const staffById = new Map(data.staff.map((s) => [s.id, s]));
   const facilityById = new Map(data.facilities.map((f) => [f.id, f]));
@@ -63,7 +80,22 @@ export function ScheduleBoard({
       .join(" — ");
     return (
       <li key={a.id}>
-        <button type="button" className={`chip chip-${a.type}`} onClick={() => onEdit(a)} title={title}>
+        <button
+          type="button"
+          className={`chip chip-${a.type}${dragging?.id === a.id ? " is-dragging" : ""}`}
+          onClick={() => onEdit(a)}
+          title={`${title}\nDrag to move · Alt/Option-drag to copy`}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(DRAG_TYPE, a.id);
+            e.dataTransfer.effectAllowed = "copyMove";
+            setDragging(a);
+          }}
+          onDragEnd={() => {
+            setDragging(null);
+            setOver(null);
+          }}
+        >
           <span className="chip-main">{main}</span>
           {sub && <span className="chip-sub">{sub}</span>}
           {a.notes && <span className="chip-note" aria-label="Has notes" />}
@@ -72,12 +104,43 @@ export function ScheduleBoard({
     );
   }
 
-  function cell(entries: Assignment[], date: string, prefill: NewEntryPrefill | null, label: string) {
+  function cell(entries: Assignment[], date: string, prefill: NewEntryPrefill | null, label: string, target: DropTarget) {
+    const key = `${target.staffId ?? target.facilityId ?? NO_FACILITY_KEY}:${date}`;
+    const plan = dragging ? planDrop(dragging, target) : null;
+    const isOver = over?.key === key;
+    const dropState = isOver && plan ? (plan.kind === "invalid" ? " is-drop-invalid" : plan.kind === "change" ? (over.copy ? " is-drop-copy" : " is-drop") : "") : "";
     return (
-      <td key={date} className={`board-cell${date === today ? " is-today" : ""}${entries.some((a) => ABSENT.has(a.type)) ? " is-away" : ""}`}>
+      <td
+        key={date}
+        className={`board-cell${date === today ? " is-today" : ""}${entries.some((a) => ABSENT.has(a.type)) ? " is-away" : ""}${dropState}`}
+        onDragOver={(e) => {
+          if (!dragging || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+          e.preventDefault();
+          // An invalid target still accepts the drop (outlined as a caution), so the reason can be shown.
+          e.dataTransfer.dropEffect = e.altKey ? "copy" : "move";
+          if (over?.key !== key || over.copy !== e.altKey) setOver({ key, copy: e.altKey });
+        }}
+        onDragLeave={(e) => {
+          if (isOver && !e.currentTarget.contains(e.relatedTarget as Node)) setOver(null);
+        }}
+        onDrop={(e) => {
+          if (!dragging) return;
+          e.preventDefault();
+          const entry = dragging;
+          setDragging(null);
+          setOver(null);
+          onDrop(entry, target, e.altKey);
+        }}
+      >
         {entries.length > 0 && <ul className="chip-list">{entries.map(chip)}</ul>}
         {prefill && (
-          <button type="button" className="cell-add" onClick={() => onCreate(prefill)} aria-label={`Add entry: ${label}, ${dayHeading(date).weekday} ${dayHeading(date).day}`}>
+          <button
+            type="button"
+            className="cell-add"
+            onClick={(e) => onQuickAdd(prefill, e.currentTarget)}
+            aria-label={`Add entry: ${label}, ${dayHeading(date).weekday} ${dayHeading(date).day}`}
+            aria-haspopup="dialog"
+          >
             <span aria-hidden="true">+</span>
           </button>
         )}
@@ -91,7 +154,7 @@ export function ScheduleBoard({
         <span className="rowhead-name">{row.record.displayName}</span>
         {row.record.credentials && <span className="rowhead-sub">{row.record.credentials}</span>}
       </th>
-      {days.map((d) => cell(row.cells[d] ?? [], d, { date: d, staffId: row.key }, row.record.displayName))}
+      {days.map((d) => cell(row.cells[d] ?? [], d, { date: d, staffId: row.key }, row.record.displayName, { date: d, staffId: row.key }))}
     </tr>
   );
 
@@ -102,7 +165,7 @@ export function ScheduleBoard({
         {row.record.abbreviation && <span className="rowhead-sub">{row.record.name}</span>}
         {row.record.operationalStatus === "inactive" && <span className="rowhead-sub caution-text">Inactive</span>}
       </th>
-      {days.map((d) => cell(row.cells[d] ?? [], d, { date: d, facilityId: row.key }, facilityShort(row.record)))}
+      {days.map((d) => cell(row.cells[d] ?? [], d, { date: d, facilityId: row.key }, facilityShort(row.record), { date: d, facilityId: row.key }))}
     </tr>
   );
 
@@ -147,7 +210,7 @@ export function ScheduleBoard({
                     <span className="rowhead-name">Not at a facility</span>
                     <span className="rowhead-sub">Admin, clinic, PTO, off</span>
                   </th>
-                  {days.map((d) => cell(fResult!.elsewhere!.cells[d] ?? [], d, null, ""))}
+                  {days.map((d) => cell(fResult!.elsewhere!.cells[d] ?? [], d, null, "", { date: d, facilityId: null }))}
                 </tr>
               )}
             </>

@@ -34,6 +34,11 @@ export interface StaffRecord {
   credentials: string | null;
   category: string;
   employmentStatus?: string;
+  /** For search only: other names this person goes by. */
+  firstName?: string;
+  lastName?: string;
+  preferredName?: string | null;
+  aliases?: string[];
 }
 
 export interface FacilityRecord {
@@ -42,6 +47,8 @@ export interface FacilityRecord {
   abbreviation: string | null;
   operationalStatus: string;
   city?: string | null;
+  /** For search only: legal, former, common and tracker names. */
+  aliases?: string[];
 }
 
 /** GET /api/schedule/board: one week's entries plus the roster and facility list for rows and pickers. */
