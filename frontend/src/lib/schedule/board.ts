@@ -11,7 +11,7 @@ export interface BoardFilters {
   search: string;
   staffId: string | null;
   facilityId: string | null;
-  /** Show every provider / active facility, not just those with entries this week. */
+  /** Show every provider / schedulable facility, not just those with entries this week. */
   showAll: boolean;
 }
 
@@ -61,10 +61,17 @@ export function providerRows(data: ScheduleBoardData, weekStartIso: string, filt
   return rows;
 }
 
+/**
+ * Facilities "Show all" lists: active ones, and those whose status no source has set yet
+ * ("unknown", which is most of them until HIM records operational status). Inactive and
+ * prospective facilities stay out of the default board but remain selectable in the editor.
+ */
+export const isSchedulableFacility = (f: FacilityRecord) => f.operationalStatus === "active" || f.operationalStatus === "unknown";
+
 /** The pseudo-row in the facility view for admin, clinic, PTO and off entries with no facility. */
 export const NO_FACILITY_KEY = "no-facility";
 
-/** Rows by facility: facilities with entries this week (or every active facility with "show all"). */
+/** Rows by facility: facilities with entries this week (or every schedulable facility with "show all"). */
 export function facilityRows(
   data: ScheduleBoardData,
   weekStartIso: string,
@@ -76,7 +83,7 @@ export function facilityRows(
   const narrowed = !!filters.staffId || !!filters.facilityId;
 
   const ids = new Set(entries.flatMap((a) => (a.facilityId ? [a.facilityId] : [])));
-  if (!narrowed && filters.showAll) for (const f of data.facilities) if (f.operationalStatus === "active") ids.add(f.id);
+  if (!narrowed && filters.showAll) for (const f of data.facilities) if (isSchedulableFacility(f)) ids.add(f.id);
   if (filters.facilityId) ids.add(filters.facilityId);
 
   const rows = [...ids]

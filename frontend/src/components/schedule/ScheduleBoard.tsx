@@ -132,7 +132,7 @@ export function ScheduleBoard({
                 {filters.search || filters.staffId || filters.facilityId
                   ? "Nothing matches these filters this week."
                   : filters.showAll
-                    ? `No ${providerView ? "providers" : "active facilities"} to show.`
+                    ? `No ${providerView ? "providers" : "facilities"} to show.`
                     : "Nothing is scheduled this week yet. Use Add entry, or Show all to schedule from an empty board."}
               </td>
             </tr>

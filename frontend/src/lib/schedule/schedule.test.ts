@@ -72,6 +72,8 @@ describe("board views are projections of the same entries", () => {
       { id: "alpha", name: "Alpha Post Acute", abbreviation: "APA", operationalStatus: "active" },
       { id: "beta", name: "Beta Care", abbreviation: "BC", operationalStatus: "active" },
       { id: "gamma", name: "Gamma Rehab", abbreviation: null, operationalStatus: "inactive" },
+      { id: "delta", name: "Delta Unknown Care", abbreviation: "DUC", operationalStatus: "unknown" },
+      { id: "eps", name: "Epsilon Future Care", abbreviation: "EFC", operationalStatus: "prospective" },
     ],
     assignments: [
       entry({ id: "1" }),
@@ -105,8 +107,8 @@ describe("board views are projections of the same entries", () => {
     expect(facilityTotal).toBe(providerTotal);
   });
 
-  it("show all adds active facilities only", () => {
-    expect(facilityRows(data, "2026-10-12", { ...none, showAll: true }).rows.map((r) => r.key)).toEqual(["alpha", "beta"]);
+  it("show all adds active facilities and those whose status isn't known yet, not inactive or prospective ones", () => {
+    expect(facilityRows(data, "2026-10-12", { ...none, showAll: true }).rows.map((r) => r.key)).toEqual(["alpha", "beta", "delta"]);
   });
 
   it("filters by provider, facility and search", () => {
