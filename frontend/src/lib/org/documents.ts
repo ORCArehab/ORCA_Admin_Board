@@ -45,6 +45,8 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+    // Vercel rejects an oversized body with its own (non-JSON) page before our route runs.
+    if (res.status === 413 && !body?.error?.message) throw new OrgError(413, "TOO_LARGE", "Files must be 4 MB or smaller.");
     throw new OrgError(res.status, body?.error?.code ?? "HTTP_ERROR", body?.error?.message ?? `Request failed (${res.status}).`);
   }
   return (await res.json()) as T;
