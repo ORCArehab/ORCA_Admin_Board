@@ -50,6 +50,20 @@ export function upstreamError(error: unknown, context: string) {
   return errorResponse(502, "UPSTREAM_ERROR", "The ORCA API couldn't be reached. Try again in a moment.");
 }
 
+/**
+ * Like upstreamError, but keeps the API's own message and code for statuses a page explains
+ * itself (documents: not set up, folder missing, Drive unavailable, too large).
+ */
+export function passThroughError(error: unknown, context: string) {
+  if (error instanceof OrcaApiError && [400, 404, 409, 413, 503].includes(error.status)) {
+    const body = (error.body ?? {}) as { error?: unknown; code?: unknown };
+    const message = typeof body.error === "string" ? body.error : "The request couldn't be completed.";
+    const code = typeof body.code === "string" ? body.code.toUpperCase() : error.status === 503 ? "UNAVAILABLE" : "INVALID";
+    return errorResponse(error.status, code, message);
+  }
+  return upstreamError(error, context);
+}
+
 export const signedOut = () => errorResponse(401, "SIGNED_OUT", "Sign in to continue.");
 
 /** A JSON object body, or null. */
