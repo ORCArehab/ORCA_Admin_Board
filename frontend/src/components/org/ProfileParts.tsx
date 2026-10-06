@@ -122,6 +122,8 @@ const ACTION_LABELS: Record<string, string> = {
   alias_removed: "Name removed",
   person_linked: "Sign-in account linked",
   person_unlinked: "Sign-in account unlinked",
+  documents_folder_linked: "Document folder set up",
+  document_added: "Document added",
 };
 
 /** Who changed what, and when. The API records field names only, never values. */
@@ -139,6 +141,7 @@ export function History({ events }: { events: OrgEvent[] }) {
               <span>
                 {ACTION_LABELS[e.action] ?? e.action}
                 {e.action === "updated" && e.fields.length > 0 && <span className="muted"> {e.fields.map((f) => f.replace(/_/g, " ")).join(", ")}</span>}
+                {e.action === "document_added" && e.fields.length > 0 && <span className="muted"> to {e.fields.join(", ")}</span>}
               </span>
               <span className="muted">
                 {e.actor.startsWith("import:") ? "Import" : e.actor} · {formatDate(e.at)}

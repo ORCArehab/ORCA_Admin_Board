@@ -23,6 +23,7 @@ import {
 } from "@/lib/org/profile";
 import type { Facility, FacilityDetail, StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
+import { EmployeeDocuments } from "./EmployeeDocuments";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
 
@@ -163,9 +164,7 @@ export function EmployeeProfile({ detail, flash, onEdit }: { detail: StaffDetail
               </Link>
             </ProfileSection>
           )}
-          <ProfileSection title="Documents">
-            <p className="profile-empty">Employee documents will appear here once document storage is connected.</p>
-          </ProfileSection>
+          <EmployeeDocuments staffId={staff.id} />
           <ProfileSection title="Additional information">
             <DetailList items={staffAdditional(staff)} />
           </ProfileSection>
