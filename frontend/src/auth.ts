@@ -76,7 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return token;
       }
 
-      // Pick up role changes; end the session if the person was deactivated or lost ADMIN.
+      // Pick up role changes; end the session if the person was deactivated or lost Admin/HR.
       if (token.adminUser && token.orcaApi && Date.now() - token.orcaApi.refreshedAt > ROLE_REFRESH_INTERVAL_MS) {
         const result = await refreshWithApi(token.orcaApi, token.adminUser);
         if (result === "signed-out") return null;

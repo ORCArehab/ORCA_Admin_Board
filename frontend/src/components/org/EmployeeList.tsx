@@ -4,19 +4,22 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { listStaff } from "@/lib/org/api";
-import { isFormer, staffCategory, staffSubtitle } from "@/lib/org/profile";
+import { ROLE_OPTIONS } from "@/lib/access";
+import { isFormer, staffCategoryLabels, staffPosition, staffSubtitle } from "@/lib/org/profile";
 import { CATEGORY_LABELS, STAFF_CATEGORIES, type Staff } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { Avatar } from "./ProfileParts";
 
 type StatusFilter = "current" | "former" | "all";
 
-/** Finding a person, not reading their record: name, title, category and current/former. Each row opens the profile. */
+/** Finding a person, not reading their record: name, title, position, Category and current/former. Each row opens the profile. */
 export function EmployeeList() {
   const state = useOrgResource(listStaff, []);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("current");
-  const [category, setCategory] = useState("");
+  const [position, setPosition] = useState("");
+  /** A role key, "none" (no roles or no account), or "" for everyone. */
+  const [role, setRole] = useState("");
 
   const all = useMemo(() => (state.status === "ready" ? state.data : []), [state]);
   const rows = useMemo(() => {
@@ -24,10 +27,11 @@ export function EmployeeList() {
     return all.filter(
       (s) =>
         (status === "all" || (status === "former") === isFormer(s)) &&
-        (!category || s.category === category) &&
+        (!position || s.category === position) &&
+        (!role || (role === "none" ? !s.access?.roles.length : !!s.access?.roles.includes(role))) &&
         (!q || [s.displayName, s.preferredName, s.workEmail, s.title, s.staffNumber, s.npi].some((v) => v?.toLowerCase().includes(q))),
     );
-  }, [all, query, status, category]);
+  }, [all, query, status, position, role]);
 
   return (
     <>
@@ -46,13 +50,22 @@ export function EmployeeList() {
         <>
           <div className="directory-toolbar">
             <input className="search" type="search" placeholder="Search name, email, title, NPI" aria-label="Search employees" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <select className="select" aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">All categories</option>
+            <select className="select" aria-label="Position" value={position} onChange={(e) => setPosition(e.target.value)}>
+              <option value="">All positions</option>
               {STAFF_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {CATEGORY_LABELS[c]}
                 </option>
               ))}
+            </select>
+            <select className="select" aria-label="Category" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="">All categories</option>
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label}
+                </option>
+              ))}
+              <option value="none">No category</option>
             </select>
             <div className="segmented" role="group" aria-label="Status">
               {(["current", "former", "all"] as const).map((s) => (
@@ -89,7 +102,7 @@ export function EmployeeRow({ staff: s, showState }: { staff: Staff; showState: 
           <span className="directory-name">{s.displayName}</span>
           {subtitle && <span className="directory-sub">{subtitle}</span>}
         </span>
-        <span className="directory-col">{staffCategory(s) ?? ""}</span>
+        <span className="directory-col">{[staffPosition(s), staffCategoryLabels(s).join(", ")].filter(Boolean).join(" · ")}</span>
         <span className="directory-state">
           {showState && <span className={former ? "state-former" : "state-current"}>{former ? "Former" : "Current"}</span>}
           {s.employmentStatus === "onboarding" && <span className="state-note">Onboarding</span>}

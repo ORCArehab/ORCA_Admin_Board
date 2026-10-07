@@ -30,8 +30,10 @@ export type EmployeeDocuments =
   | {
       status: "ok";
       folderId: string;
-      folderUrl: string;
-      categories: { key: DocumentCategory; label: string; folderId: string | null; files: DocumentFile[] }[];
+      /** Null when Contracts are locked for this person: the whole folder would show them in Drive. */
+      folderUrl: string | null;
+      /** locked: HR only (Contracts) and this person isn't HR. No files are listed. */
+      categories: { key: DocumentCategory; label: string; folderId: string | null; files: DocumentFile[]; locked?: boolean }[];
       unfiled: DocumentFile[];
       missingSubfolders: DocumentCategory[];
     };
@@ -54,7 +56,7 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
 
 const base = (staffId: string) => `/api/staff-documents/${encodeURIComponent(staffId)}`;
 export const getEmployeeDocuments = (staffId: string) => request<EmployeeDocuments>(base(staffId));
-export const setUpEmployeeFolder = (staffId: string) => request<{ folderId: string; folderUrl: string; created: boolean }>(`${base(staffId)}/folder`, { method: "POST" });
+export const setUpEmployeeFolder = (staffId: string) => request<{ folderId: string; folderUrl: string | null; created: boolean }>(`${base(staffId)}/folder`, { method: "POST" });
 export function addEmployeeDocument(staffId: string, category: DocumentCategory, file: File) {
   const body = new FormData();
   body.set("category", category);
@@ -89,6 +91,6 @@ export function uploadProblem(file: File | null, category: string | null): strin
   if (!file) return "Choose a file.";
   if (file.size === 0) return "That file is empty.";
   if (file.size > MAX_DOCUMENT_BYTES) return `Files must be 4 MB or smaller (this one is ${fileSize(file.size)}).`;
-  if (!DOCUMENT_CATEGORIES.some((c) => c.key === category)) return "Choose Credentials, Contracts or Other.";
+  if (!DOCUMENT_CATEGORIES.some((c) => c.key === category)) return "Choose a folder.";
   return null;
 }

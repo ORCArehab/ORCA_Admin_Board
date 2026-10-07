@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressLines, facilityAdditional, facilityContact, facilityStatus, initials, isSchedulable, staffAdditional, staffOverview, staffSubtitle } from "./profile";
+import { addressLines, facilityAdditional, facilityContact, facilityStatus, initials, isSchedulable, staffAdditional, staffCategoryLabels, staffOverview, staffSubtitle } from "./profile";
 import type { Facility, Staff } from "./types";
 
 const staff = (overrides: Partial<Staff> = {}): Staff => ({
@@ -60,12 +60,12 @@ describe("initials", () => {
 describe("employee profile", () => {
   it("hides empty and unknown values instead of showing placeholders", () => {
     const labels = staffOverview(staff()).map((i) => i.label);
-    expect(labels).toEqual(["Category", "Status"]); // email, title, type (unknown), dates all empty
+    expect(labels).toEqual(["Position", "Status"]); // email, title, type (unknown), dates all empty
   });
 
   it("shows recorded values, links email, and shows end date only when recorded", () => {
     const o = staffOverview(staff({ workEmail: "ann@example.com", title: "Nurse practitioner", employmentType: "w2_full_time", startDate: "2025-03-01" }));
-    expect(o.map((i) => i.label)).toEqual(["Work email", "Job title", "Category", "Employment type", "Status", "Start date"]);
+    expect(o.map((i) => i.label)).toEqual(["Work email", "Job title", "Position", "Employment type", "Status", "Start date"]);
     expect(o[0]).toMatchObject({ value: "ann@example.com", href: "mailto:ann@example.com" });
     expect(staffOverview(staff({ endDate: "2026-06-30", employmentStatus: "separated" })).map((i) => i.label)).toContain("End date");
   });
@@ -73,6 +73,12 @@ describe("employee profile", () => {
   it("keeps less frequent fields in Additional information, never empty", () => {
     expect(staffAdditional(staff({ credentials: null })).map((i) => i.label)).toEqual(["Staff number"]);
     expect(staffAdditional(staff({ npi: "1234567893", directoryVisible: false })).map((i) => i.label)).toEqual(["Credentials", "NPI", "Staff number", "Staff directory"]);
+  });
+
+  it("Category is the account's roles, in the standard order; none without an account", () => {
+    expect(staffCategoryLabels(staff())).toEqual([]);
+    expect(staffCategoryLabels(staff({ access: null }))).toEqual([]);
+    expect(staffCategoryLabels(staff({ access: { personId: "p", email: "a@orcarehab.com", active: true, roles: ["IT", "HR", "PROVIDER"] } }))).toEqual(["Provider", "HR", "IT"]);
   });
 
   it("uses title, then credentials, as the subtitle; schedulable = physician or NP/PA", () => {

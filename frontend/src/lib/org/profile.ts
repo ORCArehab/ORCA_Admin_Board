@@ -1,3 +1,4 @@
+import { ROLE_OPTIONS } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { PROVIDER_CATEGORIES } from "@/lib/schedule/board";
 import {
@@ -59,8 +60,15 @@ export function staffSubtitle(s: Pick<Staff, "title" | "credentials" | "displayN
   return s.displayName.toLowerCase().includes(s.credentials.trim().toLowerCase()) ? null : s.credentials;
 }
 
-export function staffCategory(s: Pick<Staff, "category">): string | null {
+/** The kind of job (Physician, NP / PA…), shown as Position. */
+export function staffPosition(s: Pick<Staff, "category">): string | null {
   return known(CATEGORY_LABELS, s.category);
+}
+
+/** The employee's Category: their roles, labelled, in the order roles are listed. Empty when none or no account. */
+export function staffCategoryLabels(s: Pick<Staff, "access">): string[] {
+  const held = s.access?.roles ?? [];
+  return ROLE_OPTIONS.filter((r) => held.includes(r.key)).map((r) => r.label);
 }
 
 export function staffStatus(s: Pick<Staff, "employmentStatus">): string | null {
@@ -72,7 +80,7 @@ export function staffOverview(s: Staff): DetailItem[] {
   return items([
     present(s.workEmail) && { label: "Work email", value: s.workEmail, href: `mailto:${s.workEmail}` },
     { label: "Job title", value: s.title ?? "" },
-    { label: "Category", value: staffCategory(s) ?? "" },
+    { label: "Position", value: staffPosition(s) ?? "" },
     { label: "Employment type", value: known(EMPLOYMENT_TYPE_LABELS, s.employmentType) ?? "" },
     { label: "Status", value: staffStatus(s) ?? "" },
     present(s.startDate) && { label: "Start date", value: formatDate(s.startDate) },

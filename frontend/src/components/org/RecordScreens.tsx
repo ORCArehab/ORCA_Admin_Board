@@ -16,13 +16,14 @@ import {
   facilityType,
   isSchedulable,
   staffAdditional,
-  staffCategory,
+  staffPosition,
   staffOverview,
   staffStatus,
   staffSubtitle,
 } from "@/lib/org/profile";
-import type { Facility, FacilityDetail, StaffDetail } from "@/lib/org/types";
+import type { Facility, FacilityDetail, StaffAccess, StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
+import { EmployeeCategory } from "./EmployeeCategory";
 import { EmployeeDocuments } from "./EmployeeDocuments";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
@@ -117,11 +118,31 @@ export function EmployeeScreen({ id, created }: { id: string; created: boolean }
     );
   }
 
-  return <EmployeeProfile detail={state.data} flash={flash} onEdit={() => switchTo("edit")} />;
+  return (
+    <EmployeeProfile
+      detail={state.data}
+      flash={flash}
+      onEdit={() => switchTo("edit")}
+      onAccessSaved={(access) => {
+        state.replace((d) => ({ ...d, staff: { ...d.staff, access } }));
+        setFlash("Category saved.");
+      }}
+    />
+  );
 }
 
 /** The read-only employee profile (presentational; EmployeeScreen loads the data and owns edit mode). */
-export function EmployeeProfile({ detail, flash, onEdit }: { detail: StaffDetail; flash: string | null; onEdit: () => void }) {
+export function EmployeeProfile({
+  detail,
+  flash,
+  onEdit,
+  onAccessSaved = () => {},
+}: {
+  detail: StaffDetail;
+  flash: string | null;
+  onEdit: () => void;
+  onAccessSaved?: (access: StaffAccess) => void;
+}) {
   const { staff, assignments, sourceOwned, events } = detail;
   const schedulable = isSchedulable(staff);
   return (
@@ -131,7 +152,7 @@ export function EmployeeProfile({ detail, flash, onEdit }: { detail: StaffDetail
         badge={<Avatar name={staff.displayName} size="lg" />}
         title={staff.displayName}
         subtitle={staffSubtitle(staff)}
-        meta={[staffCategory(staff), staffStatus(staff), !staff.directoryVisible && "Hidden from the directory"]}
+        meta={[staffPosition(staff), staffStatus(staff), !staff.directoryVisible && "Hidden from the directory"]}
         action={
           <button type="button" className="button button-primary-sm" onClick={onEdit}>
             Edit employee
@@ -144,6 +165,7 @@ export function EmployeeProfile({ detail, flash, onEdit }: { detail: StaffDetail
           <ProfileSection title="Overview">
             <DetailList items={staffOverview(staff)} empty="No details recorded yet." />
           </ProfileSection>
+          <EmployeeCategory staff={staff} onSaved={onAccessSaved} />
           <ProfileSection title="Facility assignments">
             <LinkRows
               rows={assignments.map((a) => ({
