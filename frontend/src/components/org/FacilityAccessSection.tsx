@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { canSee } from "@/lib/access";
-import { formatDate } from "@/lib/format";
+import { accessStamps } from "@/lib/org/accessStamps";
 import { createFacilityAccess, listStaff, revealFacilityAccessPassword, updateFacilityAccess, type FacilityAccessInput } from "@/lib/org/api";
 import { ACCESS_STATUS_LABELS, LOGIN_METHOD_LABELS, labelFor, type FacilityAccess, type FacilityDetail, type Staff } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
@@ -113,9 +113,15 @@ function AccessRow({ access: a, linkStaff, onSaved }: { access: FacilityAccess; 
         <span className="login-detail">
           {[a.username ? `Username: ${a.username}` : "No username", method && `MFA: ${method}`, a.organization].filter(Boolean).join(" · ")}
         </span>
+        {accessStamps(a).map((s) => (
+          <span key={s.text} className={`login-detail ${s.byProvider ? "access-by-provider" : "muted"}`}>
+            {s.text}
+          </span>
+        ))}
         <span className="login-detail muted">
-          {a.hasPassword ? `Password saved${a.passwordSetAt ? ` ${formatDate(a.passwordSetAt)}` : ""}${a.passwordSetBy ? ` by ${a.passwordSetBy}` : ""}` : "No password saved"}
-          {!a.assigned && " · not currently assigned here"}
+          {!a.hasPassword && "No password saved"}
+          {!a.hasPassword && !a.assigned && " · "}
+          {!a.assigned && "Not currently assigned here"}
         </span>
         {a.notes && <span className="login-detail muted access-notes">{a.notes}</span>}
         <RevealedSecret secret={secret} />
