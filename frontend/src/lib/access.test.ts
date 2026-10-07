@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { canManageAccess, canSee, canUseApp, homeFor, roleLabel, sectionForPath } from "./access";
+import { canManageAccess, canManageFacilityAccess, canSee, canUseApp, homeFor, roleLabel, sectionForPath } from "./access";
 
 describe("who can use ORCA Admin and see what", () => {
-  it("lets Admin and HR in, nobody else", () => {
+  it("lets Admin, HR and HIM in, nobody else", () => {
     expect(canUseApp(["ADMIN"])).toBe(true);
     expect(canUseApp(["HR"])).toBe(true);
-    expect(canUseApp(["PROVIDER", "IT", "HIM", "SCRIBE"])).toBe(false);
+    expect(canUseApp(["HIM"])).toBe(true);
+    expect(canUseApp(["PROVIDER", "IT", "SCRIBE"])).toBe(false);
     expect(canUseApp([])).toBe(false);
   });
 
@@ -16,6 +17,15 @@ describe("who can use ORCA Admin and see what", () => {
     }
     expect(canSee(["HR"], "employees")).toBe(true);
     expect(canSee(["ADMIN"], "employees")).toBe(true);
+  });
+
+  it("gives HIM Facilities only, including facility access", () => {
+    for (const section of ["overview", "providers", "scribes", "schedule", "employees", "people"] as const) expect(canSee(["HIM"], section)).toBe(false);
+    expect(canSee(["HIM"], "facilities")).toBe(true);
+    expect(canManageFacilityAccess(["HIM"])).toBe(true);
+    expect(canManageFacilityAccess(["ADMIN"])).toBe(true);
+    expect(canManageFacilityAccess(["HR"])).toBe(false);
+    expect(homeFor(["HIM"])).toBe("/facilities");
   });
 
   it("only admins set an employee's Category", () => {

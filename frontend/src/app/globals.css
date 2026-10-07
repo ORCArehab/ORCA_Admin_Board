@@ -610,3 +610,17 @@ button { font: inherit; color: inherit; }
   .login-row { flex-direction: column; }
   .login-editor-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Facility access (PCC) ────────────────────────────── */
+.access-system { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.access-status { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--text-faint); }
+.access-status-active { color: var(--accent); }
+.access-status-requested { color: var(--caution); }
+.access-notes { white-space: pre-line; }
+.access-editor { padding: 4px 0; }
+.access-editor textarea {
+  width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-strong);
+  background: var(--bg); color: var(--text); font: inherit; font-size: 13px; resize: vertical;
+}
+.link-button { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+.link-rows-plain { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 8px 10px; margin: 0 -10px; }
