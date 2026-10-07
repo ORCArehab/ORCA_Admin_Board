@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { canSee } from "@/lib/access";
 import { accessStamps } from "@/lib/org/accessStamps";
-import { createFacilityAccess, listStaff, revealFacilityAccessPassword, updateFacilityAccess, type FacilityAccessInput } from "@/lib/org/api";
-import { ACCESS_STATUS_LABELS, LOGIN_METHOD_LABELS, labelFor, type FacilityAccess, type FacilityDetail, type Staff } from "@/lib/org/types";
+import { createFacilityAccess, deleteFacilityAccess, listStaff, revealFacilityAccessPassword, updateFacilityAccess, type FacilityAccessInput } from "@/lib/org/api";
+import { ACCESS_STATUS_LABELS, LOGIN_METHOD_LABELS, facilityLogins, labelFor, systemLabel, type FacilityAccess, type FacilityDetail, type Staff } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { ProfileSection } from "./ProfileParts";
 import { RevealedSecret, useRevealedSecret } from "./RevealedSecret";
@@ -14,44 +14,52 @@ import { useRoles } from "../RolesProvider";
 const PROVIDER_CATEGORIES = ["physician", "np_pa"];
 
 /**
- * Facility access: each provider's PointClickCare login for this facility, as the ORCA API
- * returns it pre-joined with the facility (detail.access). Separate from Assigned staff: someone
- * can be assigned without PCC access, which is called out below the list. Passwords are never
- * loaded with the page; Reveal asks the API, which records it on the facility and the provider.
+ * Hospital logins: each provider's login at this facility, for PointClickCare or another hospital
+ * system, as the ORCA API returns them pre-joined (detail.access). Separate from Assigned staff:
+ * someone assigned here without a PointClickCare login is called out below the list. Passwords
+ * are never loaded with the page; Reveal asks the API, which records it on the facility and the
+ * provider. Delete removes the login and its password (also recorded).
  */
-export function FacilityAccessSection({ detail, onChanged }: { detail: FacilityDetail; onChanged: (pcc: FacilityAccess[]) => void }) {
+export function FacilityAccessSection({ detail, onChanged }: { detail: FacilityDetail; onChanged: (logins: FacilityAccess[]) => void }) {
   const roles = useRoles();
-  const pcc = detail.access?.pcc ?? [];
+  const logins = facilityLogins(detail);
   const [adding, setAdding] = useState(false);
-  const withAccess = new Set(pcc.map((a) => a.staff.id));
-  const assignedWithout = uniqueStaff(detail.assignments.map((a) => a.staff)).filter((s) => !withAccess.has(s.id));
-  const replace = (next: FacilityAccess) => onChanged(pcc.some((a) => a.id === next.id) ? pcc.map((a) => (a.id === next.id ? next : a)) : [...pcc, next]);
+  const withPcc = new Set(logins.filter((a) => a.system === "pcc").map((a) => a.staff.id));
+  const assignedWithout = uniqueStaff(detail.assignments.map((a) => a.staff)).filter((s) => !withPcc.has(s.id));
+  const replace = (next: FacilityAccess) => onChanged(logins.some((a) => a.id === next.id) ? logins.map((a) => (a.id === next.id ? next : a)) : [...logins, next]);
+  const remove = (id: string) => onChanged(logins.filter((a) => a.id !== id));
+  // PointClickCare first, then other systems by name.
+  const systems = [...new Set(logins.map(systemLabel))].sort((x, y) => (x === "PointClickCare" ? -1 : y === "PointClickCare" ? 1 : x.localeCompare(y)));
 
   return (
     <ProfileSection
-      title="Facility access"
+      title="Hospital logins"
       action={
         !adding && (
           <button type="button" className="text-link profile-section-link link-button" onClick={() => setAdding(true)}>
-            + Add PCC access
+            + Add login
           </button>
         )
       }
     >
-      <h3 className="access-system">PointClickCare</h3>
-      {pcc.length === 0 && !adding && <p className="profile-empty">No PCC access recorded for this facility.</p>}
-      {pcc.length > 0 && (
-        <ul className="login-rows">
-          {pcc.map((a) => (
-            <AccessRow key={a.id} access={a} linkStaff={canSee(roles, "employees")} onSaved={replace} />
-          ))}
-        </ul>
-      )}
+      {logins.length === 0 && !adding && <p className="profile-empty">No hospital logins recorded for this facility.</p>}
+      {systems.map((system) => (
+        <div key={system} className="access-group">
+          <h3 className="access-system">{system}</h3>
+          <ul className="login-rows">
+            {logins
+              .filter((a) => systemLabel(a) === system)
+              .map((a) => (
+                <AccessRow key={a.id} access={a} linkStaff={canSee(roles, "employees")} onSaved={replace} onDeleted={() => remove(a.id)} />
+              ))}
+          </ul>
+        </div>
+      ))}
       {adding && (
         <AccessEditor
           facilityId={detail.facility.id}
           access={null}
-          excluded={withAccess}
+          withPcc={withPcc}
           suggested={assignedWithout}
           onCancel={() => setAdding(false)}
           onSaved={(a) => {
@@ -61,9 +69,9 @@ export function FacilityAccessSection({ detail, onChanged }: { detail: FacilityD
         />
       )}
       {assignedWithout.length > 0 && !adding && (
-        <p className="profile-note">Assigned here without PCC access: {assignedWithout.map((s) => s.displayName).join(", ")}.</p>
+        <p className="profile-note">Assigned here without a PointClickCare login: {assignedWithout.map((s) => s.displayName).join(", ")}.</p>
       )}
-      <p className="profile-note">Passwords are encrypted. Each reveal and change is recorded on this facility and the provider.</p>
+      <p className="profile-note">Passwords are encrypted. Each reveal, change and deletion is recorded on this facility and the provider.</p>
     </ProfileSection>
   );
 }
@@ -72,8 +80,33 @@ function uniqueStaff(list: { id: string; displayName: string }[]) {
   return [...new Map(list.map((s) => [s.id, s])).values()];
 }
 
-function AccessRow({ access: a, linkStaff, onSaved }: { access: FacilityAccess; linkStaff: boolean; onSaved: (a: FacilityAccess) => void }) {
+function AccessRow({
+  access: a,
+  linkStaff,
+  onSaved,
+  onDeleted,
+}: {
+  access: FacilityAccess;
+  linkStaff: boolean;
+  onSaved: (a: FacilityAccess) => void;
+  onDeleted: () => void;
+}) {
   const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function confirmDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteFacilityAccess(a.id);
+      onDeleted();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Couldn't delete.");
+      setDeleting(false);
+    }
+  }
   const secret = useRevealedSecret(() => revealFacilityAccessPassword(a.id));
 
   if (editing) {
@@ -82,7 +115,7 @@ function AccessRow({ access: a, linkStaff, onSaved }: { access: FacilityAccess; 
         <AccessEditor
           facilityId={a.facility.id}
           access={a}
-          excluded={new Set()}
+          withPcc={new Set()}
           suggested={[]}
           onCancel={() => setEditing(false)}
           onSaved={(next) => {
@@ -125,6 +158,20 @@ function AccessRow({ access: a, linkStaff, onSaved }: { access: FacilityAccess; 
         </span>
         {a.notes && <span className="login-detail muted access-notes">{a.notes}</span>}
         <RevealedSecret secret={secret} />
+        {confirming && (
+          <span className="access-delete-confirm" role="alert">
+            Delete {a.staff.displayName}&apos;s {systemLabel(a)} login? The saved password is deleted too. This can&apos;t be undone.
+            <span className="access-delete-actions">
+              <button type="button" className="button" onClick={() => setConfirming(false)} disabled={deleting}>
+                Keep it
+              </button>
+              <button type="button" className="button button-danger" onClick={confirmDelete} disabled={deleting}>
+                {deleting ? "Deleting…" : "Delete login"}
+              </button>
+            </span>
+            {deleteError && <span className="record-error">{deleteError}</span>}
+          </span>
+        )}
       </div>
       <div className="login-actions">
         {a.hasPassword && secret.value === null && (
@@ -132,9 +179,14 @@ function AccessRow({ access: a, linkStaff, onSaved }: { access: FacilityAccess; 
             {secret.busy ? "Revealing…" : "Reveal"}
           </button>
         )}
-        <button type="button" className="button" onClick={() => setEditing(true)} disabled={secret.busy}>
+        <button type="button" className="button" onClick={() => setEditing(true)} disabled={secret.busy || deleting}>
           Edit
         </button>
+        {!confirming && (
+          <button type="button" className="button button-quiet access-delete" onClick={() => setConfirming(true)} disabled={secret.busy}>
+            Delete
+          </button>
+        )}
       </div>
     </li>
   );
@@ -144,19 +196,22 @@ function AccessRow({ access: a, linkStaff, onSaved }: { access: FacilityAccess; 
 function AccessEditor({
   facilityId,
   access,
-  excluded,
+  withPcc,
   suggested,
   onCancel,
   onSaved,
 }: {
   facilityId: string;
   access: FacilityAccess | null;
-  excluded: Set<string>;
+  /** Providers who already have a PointClickCare login here. */
+  withPcc: Set<string>;
   suggested: { id: string; displayName: string }[];
   onCancel: () => void;
   onSaved: (a: FacilityAccess) => void;
 }) {
   const [staffId, setStaffId] = useState(suggested[0]?.id ?? "");
+  const [system, setSystem] = useState<"pcc" | "other">(access?.system ?? "pcc");
+  const [systemName, setSystemName] = useState(access?.systemName ?? "");
   const [organization, setOrganization] = useState(access?.organization ?? "");
   const [username, setUsername] = useState(access?.username ?? "");
   const [password, setPassword] = useState("");
@@ -180,6 +235,13 @@ function AccessEditor({
       status,
       notes: text(notes),
     };
+    if (system === "other") {
+      if (!systemName.trim()) {
+        setError("Name the system, for example Workspace / Fluency Flex.");
+        return;
+      }
+      values.systemName = systemName.trim();
+    }
     if (removePassword) values.password = null;
     else if (password) values.password = password; // never trimmed: spaces can be part of a password
     setBusy(true);
@@ -188,7 +250,7 @@ function AccessEditor({
       if (access) {
         // Send only what changed, so the activity lists real changes.
         const changes = Object.fromEntries(
-          Object.entries(values).filter(([key, value]) => key === "password" || (access as unknown as Record<string, unknown>)[key] !== value),
+          Object.entries(values).filter(([key, value]) => key === "password" || ((access as unknown as Record<string, unknown>)[key] ?? null) !== value),
         );
         onSaved((await updateFacilityAccess(access.id, changes)).access);
       } else {
@@ -197,7 +259,7 @@ function AccessEditor({
           setBusy(false);
           return;
         }
-        onSaved(await createFacilityAccess({ ...values, staffId, facilityId, system: "pcc" }));
+        onSaved(await createFacilityAccess({ ...values, staffId, facilityId, system }));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save.");
@@ -207,15 +269,30 @@ function AccessEditor({
 
   return (
     <form className="login-editor access-editor" onSubmit={submit} autoComplete="off">
-      <span className="login-system">{access ? access.staff.displayName : "Add PCC access"}</span>
+      <span className="login-system">{access ? `${access.staff.displayName} · ${systemLabel(access)}` : "Add a hospital login"}</span>
       <div className="login-editor-grid">
-        {!access && <ProviderPicker id={`${idBase}-staff`} value={staffId} onChange={setStaffId} excluded={excluded} suggested={suggested} />}
+        {!access && (
+          <div className="field">
+            <label htmlFor={`${idBase}-system`}>System</label>
+            <select id={`${idBase}-system`} value={system} onChange={(e) => setSystem(e.target.value as "pcc" | "other")}>
+              <option value="pcc">PointClickCare</option>
+              <option value="other">Another system…</option>
+            </select>
+          </div>
+        )}
+        {system === "other" && (
+          <div className="field">
+            <label htmlFor={`${idBase}-system-name`}>System name</label>
+            <input id={`${idBase}-system-name`} value={systemName} onChange={(e) => setSystemName(e.target.value)} maxLength={100} placeholder="e.g. Workspace / Fluency Flex" />
+          </div>
+        )}
+        {!access && <ProviderPicker id={`${idBase}-staff`} value={staffId} onChange={setStaffId} excluded={system === "pcc" ? withPcc : new Set()} suggested={system === "pcc" ? suggested : []} />}
         <div className="field">
           <label htmlFor={`${idBase}-org`}>Company / organization</label>
           <input id={`${idBase}-org`} value={organization} onChange={(e) => setOrganization(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor={`${idBase}-user`}>PCC username / ID</label>
+          <label htmlFor={`${idBase}-user`}>Username / ID</label>
           <input id={`${idBase}-user`} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" spellCheck={false} />
         </div>
         <div className="field">
@@ -276,7 +353,7 @@ function AccessEditor({
           Cancel
         </button>
         <button type="submit" className="button button-primary-sm" disabled={busy}>
-          {busy ? "Saving…" : access ? "Save" : "Add access"}
+          {busy ? "Saving…" : access ? "Save" : "Add login"}
         </button>
       </div>
     </form>

@@ -3,9 +3,9 @@ import { errorResponse, jsonResponse, passThroughError, readJsonObject, signedOu
 import { orcaApiRequest } from "@/lib/orcaApi";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FIELDS = ["organization", "username", "password", "loginMethod", "loginMethodDetail", "status", "notes"];
+const FIELDS = ["systemName", "organization", "username", "password", "loginMethod", "loginMethodDetail", "status", "notes"];
 
-/** Edits one access record. The password goes straight to the ORCA API (encrypted there), never logged or kept here. */
+/** Edits one hospital login. The password goes straight to the ORCA API (encrypted there), never logged or kept here. */
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/facility-access/[id]">) {
   const { id } = await ctx.params;
   if (!UUID.test(id)) return errorResponse(404, "NOT_FOUND", "Not found.");
@@ -18,6 +18,19 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/facility-a
     return jsonResponse(
       await orcaApiRequest<unknown>(`/v1/facility-access/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(changes), userToken }),
     );
+  } catch (error) {
+    return passThroughError(error, "facility-access");
+  }
+}
+
+/** Deletes one hospital login and its password. The ORCA API checks facility_access.write (ADMIN, HIM) and records it. */
+export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/facility-access/[id]">) {
+  const { id } = await ctx.params;
+  if (!UUID.test(id)) return errorResponse(404, "NOT_FOUND", "Not found.");
+  const userToken = await userTokenFor(req);
+  if (!userToken) return signedOut();
+  try {
+    return jsonResponse(await orcaApiRequest<unknown>(`/v1/facility-access/${id}`, { method: "DELETE", userToken }));
   } catch (error) {
     return passThroughError(error, "facility-access");
   }

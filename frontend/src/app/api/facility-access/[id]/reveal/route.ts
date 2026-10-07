@@ -4,7 +4,7 @@ import { orcaApiRequest } from "@/lib/orcaApi";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Reveals a saved PCC password; the ORCA API records the reveal on the facility and provider first. */
+/** Reveals a saved hospital login password; the ORCA API records the reveal on the facility and provider first. */
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/facility-access/[id]/reveal">) {
   const { id } = await ctx.params;
   if (!UUID.test(id)) return errorResponse(404, "NOT_FOUND", "Not found.");

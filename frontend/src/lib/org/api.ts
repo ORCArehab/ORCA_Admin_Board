@@ -102,11 +102,12 @@ export const saveLogin = (staffId: string, system: LoginSystem, change: { userna
 export const revealLoginPassword = (staffId: string, system: LoginSystem) =>
   request<{ password: string }>(`${loginsPath(staffId, system)}/reveal`, { method: "POST" }).then((r) => r.password);
 
-// ── Provider access to facility systems (PCC) ─────────────
+// ── Hospital logins (PointClickCare and other systems) ─────────────
 // Reads come with the facility (detail.access) and employee (detail.facilityAccess). Passwords
 // never come back except revealFacilityAccessPassword, recorded on the facility and provider.
 
 export type FacilityAccessInput = Partial<{
+  systemName: string;
   organization: string | null;
   username: string | null;
   password: string | null;
@@ -116,11 +117,14 @@ export type FacilityAccessInput = Partial<{
   notes: string | null;
 }>;
 
-export const createFacilityAccess = (input: FacilityAccessInput & { staffId: string; facilityId: string; system: "pcc" }) =>
+export const createFacilityAccess = (input: FacilityAccessInput & { staffId: string; facilityId: string; system: "pcc" | "other"; systemName?: string }) =>
   request<{ access: FacilityAccess }>("/api/facility-access", { method: "POST", body: JSON.stringify(input) }).then((r) => r.access);
 
 export const updateFacilityAccess = (id: string, changes: FacilityAccessInput) =>
   request<{ changed: string[]; access: FacilityAccess }>(`/api/facility-access/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(changes) });
+
+/** Deletes a login and its password; the ORCA API records it on the facility and the provider. */
+export const deleteFacilityAccess = (id: string) => request<{ deleted: true }>(`/api/facility-access/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const revealFacilityAccessPassword = (id: string) =>
   request<{ password: string }>(`/api/facility-access/${encodeURIComponent(id)}/reveal`, { method: "POST" }).then((r) => r.password);
