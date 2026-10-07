@@ -38,6 +38,15 @@ export function staffSections(isNew: boolean): SectionDef[] {
         },
         { name: "workEmail", label: "Work email", kind: "email", hint: "Their ORCA email. Lowercased when saved.", autoComplete: "off" },
         { name: "npi", label: "NPI", placeholder: "10 digits", hint: "Providers only. Checked for a valid check digit." },
+        { name: "caqhProviderId", label: "CAQH Provider ID", placeholder: "Digits only", hint: "Providers only. Logins are kept in Credentialing on the profile." },
+      ],
+    },
+    {
+      title: "Contact",
+      fields: [
+        { name: "ringcentralPhone", label: "RingCentral phone", autoComplete: "off", hint: "Work line. Visible to all staff." },
+        { name: "personalPhone", label: "Personal phone", autoComplete: "off", hint: "Visible only to HR and admins." },
+        { name: "personalEmail", label: "Personal email", kind: "email", wide: true, autoComplete: "off", hint: "Visible only to HR and admins. Lowercased when saved." },
       ],
     },
     {

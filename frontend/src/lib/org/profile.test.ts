@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { addressLines, facilityAdditional, facilityContact, facilityStatus, initials, isSchedulable, staffAdditional, staffCategoryLabels, staffOverview, staffSubtitle } from "./profile";
+import {
+  addressLines,
+  facilityAdditional,
+  facilityContact,
+  facilityStatus,
+  initials,
+  isSchedulable,
+  showsCredentialing,
+  staffAdditional,
+  staffCategoryLabels,
+  staffCredentialing,
+  staffOverview,
+  staffPersonalContact,
+  staffSubtitle,
+} from "./profile";
 import type { Facility, Staff } from "./types";
 
 const staff = (overrides: Partial<Staff> = {}): Staff => ({
@@ -72,7 +86,9 @@ describe("employee profile", () => {
 
   it("keeps less frequent fields in Additional information, never empty", () => {
     expect(staffAdditional(staff({ credentials: null })).map((i) => i.label)).toEqual(["Staff number"]);
-    expect(staffAdditional(staff({ npi: "1234567893", directoryVisible: false })).map((i) => i.label)).toEqual(["Credentials", "NPI", "Staff number", "Staff directory"]);
+    // A provider's NPI moves to Credentialing; others keep it here.
+    expect(staffAdditional(staff({ npi: "1234567893", directoryVisible: false })).map((i) => i.label)).toEqual(["Credentials", "Staff number", "Staff directory"]);
+    expect(staffAdditional(staff({ category: "administrative", npi: null })).map((i) => i.label)).toEqual(["Credentials", "Staff number"]);
   });
 
   it("Category is the account's roles, in the standard order; none without an account", () => {
@@ -127,5 +143,27 @@ describe("facility profile", () => {
     expect(facilityStatus(facility())).toBe("Active");
     expect(facilityStatus(facility({ archivedAt: "2026-02-01T00:00:00Z" }))).toBe("Archived");
     expect(facilityStatus(facility({ operationalStatus: "unknown" }))).toBeNull();
+  });
+});
+
+describe("contact and credentialing", () => {
+  it("shows the RingCentral line in Overview and personal details separately", () => {
+    const s = staff({ workEmail: "ann@example.com", ringcentralPhone: "(949) 555-0102", personalPhone: "714.555.0101", personalEmail: "ann@example.net" });
+    expect(staffOverview(s).slice(0, 2)).toEqual([
+      { label: "Work email", value: "ann@example.com", href: "mailto:ann@example.com" },
+      { label: "RingCentral phone", value: "(949) 555-0102", href: "tel:9495550102" },
+    ]);
+    expect(staffPersonalContact(s)).toEqual([
+      { label: "Personal phone", value: "714.555.0101", href: "tel:7145550101" },
+      { label: "Personal email", value: "ann@example.net", href: "mailto:ann@example.net" },
+    ]);
+    expect(staffPersonalContact(staff())).toEqual([]); // withheld or not recorded
+  });
+
+  it("shows Credentialing for providers or anyone with an NPI/CAQH ID", () => {
+    expect(showsCredentialing(staff())).toBe(true);
+    expect(showsCredentialing(staff({ category: "scribe" }))).toBe(false);
+    expect(showsCredentialing(staff({ category: "scribe", caqhProviderId: "12345678" }))).toBe(true);
+    expect(staffCredentialing(staff({ npi: "1234567893", caqhProviderId: "12345678" })).map((i) => i.label)).toEqual(["NPI", "CAQH Provider ID"]);
   });
 });

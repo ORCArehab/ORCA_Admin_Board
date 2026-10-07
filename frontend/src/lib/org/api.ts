@@ -58,3 +58,36 @@ export const getFacility = (id: string) => request<FacilityDetail>(path("facilit
 export const createFacility = (input: Record<string, unknown>) => request<{ facility: Facility }>(path("facilities"), post(input)).then((r) => r.facility);
 export const updateFacility = (id: string, changes: Record<string, unknown>) =>
   request<{ changed: string[]; facility: Facility }>(path("facilities", id), patch(changes));
+
+// ── Credentialing logins (CAQH, NPPES, PECOS) ─────────────
+// Passwords never come back from these calls except revealLoginPassword, which the ORCA API
+// records in the employee's activity before answering.
+
+export const LOGIN_SYSTEMS = [
+  { key: "caqh", label: "CAQH ProView" },
+  { key: "nppes", label: "NPPES" },
+  { key: "pecos", label: "PECOS" },
+] as const;
+export type LoginSystem = (typeof LOGIN_SYSTEMS)[number]["key"];
+
+export interface LoginSummary {
+  system: LoginSystem;
+  username: string | null;
+  hasPassword: boolean;
+  passwordSetAt: string | null;
+  passwordSetBy: string | null;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+const loginsPath = (staffId: string, system?: LoginSystem) =>
+  `/api/org/staff/${encodeURIComponent(staffId)}/logins${system ? `/${system}` : ""}`;
+
+export const getLogins = (staffId: string) => request<{ logins: LoginSummary[]; vaultConfigured: boolean }>(loginsPath(staffId));
+
+/** username/password: omitted = unchanged, null = cleared. */
+export const saveLogin = (staffId: string, system: LoginSystem, change: { username?: string | null; password?: string | null }) =>
+  request<{ changed: string[]; logins: LoginSummary[] }>(loginsPath(staffId, system), { method: "PUT", body: JSON.stringify(change) });
+
+export const revealLoginPassword = (staffId: string, system: LoginSystem) =>
+  request<{ password: string }>(`${loginsPath(staffId, system)}/reveal`, { method: "POST" }).then((r) => r.password);

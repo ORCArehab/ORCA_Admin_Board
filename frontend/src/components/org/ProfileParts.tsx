@@ -122,6 +122,8 @@ const ACTION_LABELS: Record<string, string> = {
   alias_removed: "Name removed",
   person_linked: "Sign-in account linked",
   person_unlinked: "Sign-in account unlinked",
+  login_updated: "Login changed",
+  login_revealed: "Password revealed",
   documents_folder_linked: "Document folder set up",
   document_added: "Document added",
 };
