@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = { title: "Access denied" };
 
 const MESSAGES: Record<string, string> = {
-  NotAdmin: "ORCA Admin is limited to people with the Admin role. Ask an administrator if you need access.",
+  NotAdmin: "ORCA Admin is limited to people with the Admin or HR role. Ask an administrator if you need access.",
   AccountDisabled: "Your ORCA account is turned off. Contact an administrator.",
   AccountConflict: "This email is linked to a different Google account. Contact an administrator.",
   SignInUnavailable: "Sign-in isn't available right now. Try again in a moment.",

@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api";
-import type { Facility, FacilityDetail, FieldError, OrgKind, Staff, StaffDetail } from "./types";
+import type { Facility, FacilityDetail, FieldError, OrgKind, Staff, StaffAccess, StaffDetail } from "./types";
 
 /**
  * Browser client for this app's same-origin /api/org/* routes. Those run on the server and
@@ -48,6 +48,9 @@ export const listStaff = () => request<{ staff: Staff[] }>(`${path("staff")}?inc
 export const getStaff = (id: string) => request<StaffDetail>(path("staff", id));
 export const createStaff = (input: Record<string, unknown>) => request<{ staff: Staff }>(path("staff"), post(input)).then((r) => r.staff);
 export const updateStaff = (id: string, changes: Record<string, unknown>) => request<{ changed: string[]; staff: Staff }>(path("staff", id), patch(changes));
+/** Sets the employee's Category (exactly these roles). `email` links an unlinked record to that ORCA account first. */
+export const setStaffAccess = (id: string, roles: string[], email?: string) =>
+  request<{ changed: boolean; access: StaffAccess }>(`${path("staff", id)}/access`, { method: "PUT", body: JSON.stringify({ roles, ...(email ? { email } : {}) }) }).then((r) => r.access);
 
 /** Every facility, including archived ones; the page filters. */
 export const listFacilities = () => request<{ facilities: Facility[] }>(`${path("facilities")}?include_archived=true`).then((r) => r.facilities);

@@ -71,9 +71,18 @@ export function EmployeeDocuments({ staffId }: { staffId: string }) {
       {data?.status === "ok" && (
         <>
           {data.categories.every((c) => c.files.length === 0) && data.unfiled.length === 0 && <p className="profile-empty docs-none">No documents yet.</p>}
-          {data.categories.map((c) => (
-            <FileGroup key={c.key} label={c.label} files={c.files} />
-          ))}
+          {data.categories.map((c) =>
+            c.locked ? (
+              <div key={c.key} className="docs-group">
+                <h3 className="docs-group-label">{c.label}</h3>
+                <p className="docs-locked">
+                  <span aria-hidden="true">🔒</span> Only HR can see {c.label.toLowerCase()}.
+                </p>
+              </div>
+            ) : (
+              <FileGroup key={c.key} label={c.label} files={c.files} />
+            ),
+          )}
           {data.unfiled.length > 0 && <FileGroup label="In the folder" files={data.unfiled} />}
           {data.missingSubfolders.length > 0 && (
             <p className="profile-note">
@@ -83,17 +92,20 @@ export function EmployeeDocuments({ staffId }: { staffId: string }) {
               </button>
             </p>
           )}
-          <div className="docs-foot">
-            <a className="text-link" href={data.folderUrl} target="_blank" rel="noreferrer">
-              Open folder ↗
-            </a>
-          </div>
+          {data.folderUrl && (
+            <div className="docs-foot">
+              <a className="text-link" href={data.folderUrl} target="_blank" rel="noreferrer">
+                Open folder ↗
+              </a>
+            </div>
+          )}
         </>
       )}
 
       {adding && (
         <AddDocument
           staffId={staffId}
+          categories={DOCUMENT_CATEGORIES.filter((c) => !(data?.status === "ok" && data.categories.find((x) => x.key === c.key)?.locked))}
           onClose={() => setAdding(false)}
           onAdded={() => {
             setAdding(false);
@@ -141,7 +153,18 @@ function FileGroup({ label, files }: { label: string; files: DocumentFile[] }) {
   );
 }
 
-function AddDocument({ staffId, onClose, onAdded }: { staffId: string; onClose: () => void; onAdded: () => void }) {
+function AddDocument({
+  staffId,
+  categories,
+  onClose,
+  onAdded,
+}: {
+  staffId: string;
+  /** The folders this person may add to (no Contracts without HR). */
+  categories: readonly (typeof DOCUMENT_CATEGORIES)[number][];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState<DocumentCategory | null>(null);
@@ -189,7 +212,7 @@ function AddDocument({ staffId, onClose, onAdded }: { staffId: string; onClose: 
         <fieldset className="field">
           <legend>Folder</legend>
           <div className="segmented" role="group" aria-label="Folder">
-            {DOCUMENT_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button key={c.key} type="button" className="segment" aria-pressed={category === c.key} onClick={() => { setCategory(c.key); setError(null); }} disabled={busy}>
                 {c.label}
               </button>

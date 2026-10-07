@@ -537,3 +537,47 @@ button { font: inherit; color: inherit; }
 .docs-error { margin: 12px 0 0; font-size: 13px; color: var(--caution); }
 .docs-inline-action { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
 @media (max-width: 600px) { .docs-file-detail { display: none; } }
+
+/* ── Employee Category (roles) ─────────────────────────── */
+.role-badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.role-badge {
+  padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid transparent;
+}
+.category-editor { display: grid; gap: 16px; }
+.role-toggles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.role-toggle {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius); cursor: pointer; background: var(--surface);
+}
+.role-toggle:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.role-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.role-toggle input { margin-top: 3px; }
+.role-toggle span { display: grid; gap: 2px; }
+.role-toggle strong { font-size: 14px; font-weight: 500; color: var(--text); }
+.role-toggle small { font-size: 12px; color: var(--text-muted); }
+.category-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.docs-locked { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 0; font-size: 13px; color: var(--text-faint); }
+
+/* ── People & Roles ────────────────────────────────────── */
+.people-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.people-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.people-row.is-former .directory-name { color: var(--text-muted); }
+.people-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.people-photo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: none; }
+.people-access { display: grid; gap: 8px; justify-items: end; }
+.people-actions { display: flex; gap: 8px; }
+.people-toggles { width: 100%; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.people-toggles .role-toggle { padding: 6px 10px; }
+.people-add { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; padding: 16px 20px; margin-bottom: 20px; }
+.people-add .category-actions, .people-add .field-hint, .people-add .docs-error { grid-column: 1 / -1; }
+.role-badge-none { background: var(--surface); color: var(--text-muted); border-color: var(--border-strong); }
+.role-badge-off { background: var(--caution-soft); color: var(--caution); border-color: var(--caution-border); }
+@media (max-width: 760px) {
+  .people-row { grid-template-columns: minmax(0, 1fr); }
+  .people-access { justify-items: start; }
+  .people-add { grid-template-columns: minmax(0, 1fr); }
+}

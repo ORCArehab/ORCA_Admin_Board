@@ -15,7 +15,7 @@ export function jsonResponse(data: unknown, status = 200) {
 
 /**
  * The signed-in person's ORCA API user token, or null. auth() also refreshes roles and ends
- * the session if ADMIN was removed. The token lives only in the encrypted session cookie.
+ * the session if they no longer have Admin or HR. The token lives only in the encrypted session cookie.
  */
 export async function userTokenFor(req: NextRequest): Promise<string | null> {
   const session = await auth();
@@ -37,7 +37,7 @@ export function upstreamError(error: unknown, context: string) {
     const body = (error.body ?? {}) as { error?: unknown; code?: unknown; errors?: unknown; conflicts?: unknown; warnings?: unknown };
     const message = typeof body.error === "string" ? body.error : null;
     if (error.status === 401) return errorResponse(401, "SIGNED_OUT", "Your session ended. Sign in again.");
-    if (error.status === 403) return errorResponse(403, "FORBIDDEN", "This is limited to ORCA admins.");
+    if (error.status === 403) return errorResponse(403, "FORBIDDEN", "Your role doesn't include this.");
     if (error.status === 404) return errorResponse(404, "NOT_FOUND", message ?? "Not found.");
     if (error.status === 400) return errorResponse(400, "INVALID", message ?? "Check the entry and try again.", { errors: body.errors ?? [] });
     if (error.status === 409) {

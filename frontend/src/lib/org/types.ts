@@ -60,6 +60,14 @@ export function labelFor(labels: Record<string, string>, value: string | null | 
   return value ? (labels[value] ?? value) : "—";
 }
 
+/** An employee's Category: the roles on their linked sign-in account (null = no account linked). */
+export interface StaffAccess {
+  personId: string;
+  email: string;
+  active: boolean;
+  roles: string[];
+}
+
 export interface Staff {
   id: string;
   staffNumber: string;
@@ -81,6 +89,8 @@ export interface Staff {
   directoryVisible: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Present for HR and admins. */
+  access?: StaffAccess | null;
 }
 
 export interface Facility {

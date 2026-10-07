@@ -16,7 +16,7 @@ describe("upload checks", () => {
     expect(uploadProblem(null, "other")).toBe("Choose a file.");
     expect(uploadProblem(file(0), "other")).toBe("That file is empty.");
     expect(uploadProblem(file(4 * 1024 * 1024 + 1), "other")).toMatch(/4 MB or smaller/);
-    expect(uploadProblem(file(10), null)).toMatch(/Credentials, Contracts or Other/);
+    expect(uploadProblem(file(10), null)).toMatch(/Choose a folder/);
     expect(uploadProblem(file(10), "contracts")).toBeNull();
   });
 });
