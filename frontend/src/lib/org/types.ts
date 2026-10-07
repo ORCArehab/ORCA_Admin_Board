@@ -180,6 +180,11 @@ export interface FacilityAccess {
   hasPassword: boolean;
   passwordSetAt: string | null;
   passwordSetBy: string | null;
+  /** Who last set the username or password, when, and from which app ("portal" = the provider themself, "admin" = ORCA Admin). */
+  passwordSetVia?: string | null;
+  usernameSetAt?: string | null;
+  usernameSetBy?: string | null;
+  usernameSetVia?: string | null;
   /** The provider currently has an assignment at this facility. */
   assigned: boolean;
   updatedAt: string;

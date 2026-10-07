@@ -561,6 +561,7 @@ button { font: inherit; color: inherit; }
 .role-toggle span { display: grid; gap: 2px; }
 .role-toggle strong { font-size: 14px; font-weight: 500; color: var(--text); }
 .role-toggle small { font-size: 12px; color: var(--text-muted); }
+.access-by-provider { color: var(--accent); }
 .access-off { margin: 0 0 10px; font-size: 13px; color: var(--caution); }
 .category-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .docs-locked { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 0; font-size: 13px; color: var(--text-faint); }

@@ -230,7 +230,7 @@ export function EmployeeProfile({
                   id: a.id,
                   label: `${a.facility.abbreviation ? `${a.facility.abbreviation} · ` : ""}${a.facility.name}`,
                   href: `/facilities/${a.facility.id}`,
-                  detail: ["PointClickCare", a.username, labelFor(ACCESS_STATUS_LABELS, a.status)].filter(Boolean).join(" · "),
+                  detail: ["PointClickCare", a.username, labelFor(ACCESS_STATUS_LABELS, a.status), (a.usernameSetVia === "portal" || a.passwordSetVia === "portal") && "updated by the provider"].filter(Boolean).join(" · "),
                 }))}
                 empty=""
               />
