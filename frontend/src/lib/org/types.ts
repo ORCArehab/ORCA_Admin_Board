@@ -131,14 +131,59 @@ export interface StaffDetail {
   staff: Staff;
   aliases: { id: string; context: string; alias: string }[];
   assignments: { id: string; facility: { id: string; name: string }; type: string; effectiveFrom: string | null }[];
+  /** Present only for people who may see facility access (ADMIN, HIM). */
+  facilityAccess?: FacilityAccess[];
   sourceOwned: boolean;
   events: OrgEvent[];
+}
+
+// ── Provider access to facility systems (PointClickCare) ─────────────
+
+export const LOGIN_METHOD_LABELS: Record<string, string> = {
+  ringcentral_sms: "RingCentral (text)",
+  sms: "Text message",
+  authenticator_app: "Authenticator app",
+  email: "Email",
+  none: "None",
+  other: "Other",
+  unknown: "Not recorded",
+};
+
+export const ACCESS_STATUS_LABELS: Record<string, string> = {
+  requested: "Requested",
+  active: "Active",
+  disabled: "Disabled",
+  expired: "Expired",
+  unknown: "Not recorded",
+};
+
+/** One provider's access to one facility's system, pre-joined by the ORCA API. Never a password. */
+export interface FacilityAccess {
+  id: string;
+  system: "pcc";
+  staff: { id: string; displayName: string; category: string };
+  facility: { id: string; name: string; abbreviation: string | null };
+  organization: string | null;
+  username: string | null;
+  loginMethod: string;
+  loginMethodDetail: string | null;
+  status: string;
+  notes: string | null;
+  hasPassword: boolean;
+  passwordSetAt: string | null;
+  passwordSetBy: string | null;
+  /** The provider currently has an assignment at this facility. */
+  assigned: boolean;
+  updatedAt: string;
+  updatedBy: string;
 }
 
 export interface FacilityDetail {
   facility: Facility;
   aliases: { id: string; alias: string; type: string }[];
   assignments: { id: string; staff: { id: string; displayName: string }; type: string; effectiveFrom: string | null }[];
+  /** Present only for people who may see facility access (ADMIN, HIM). */
+  access?: { pcc: FacilityAccess[] };
   sourceOwned: boolean;
   events: OrgEvent[];
 }

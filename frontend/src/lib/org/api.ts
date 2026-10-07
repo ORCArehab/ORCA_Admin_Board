@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api";
-import type { Facility, FacilityDetail, FieldError, OrgKind, Staff, StaffAccess, StaffDetail } from "./types";
+import type { Facility, FacilityAccess, FacilityDetail, FieldError, OrgKind, Staff, StaffAccess, StaffDetail } from "./types";
 
 /**
  * Browser client for this app's same-origin /api/org/* routes. Those run on the server and
@@ -91,3 +91,26 @@ export const saveLogin = (staffId: string, system: LoginSystem, change: { userna
 
 export const revealLoginPassword = (staffId: string, system: LoginSystem) =>
   request<{ password: string }>(`${loginsPath(staffId, system)}/reveal`, { method: "POST" }).then((r) => r.password);
+
+// ── Provider access to facility systems (PCC) ─────────────
+// Reads come with the facility (detail.access) and employee (detail.facilityAccess). Passwords
+// never come back except revealFacilityAccessPassword, recorded on the facility and provider.
+
+export type FacilityAccessInput = Partial<{
+  organization: string | null;
+  username: string | null;
+  password: string | null;
+  loginMethod: string;
+  loginMethodDetail: string | null;
+  status: string;
+  notes: string | null;
+}>;
+
+export const createFacilityAccess = (input: FacilityAccessInput & { staffId: string; facilityId: string; system: "pcc" }) =>
+  request<{ access: FacilityAccess }>("/api/facility-access", { method: "POST", body: JSON.stringify(input) }).then((r) => r.access);
+
+export const updateFacilityAccess = (id: string, changes: FacilityAccessInput) =>
+  request<{ changed: string[]; access: FacilityAccess }>(`/api/facility-access/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(changes) });
+
+export const revealFacilityAccessPassword = (id: string) =>
+  request<{ password: string }>(`/api/facility-access/${encodeURIComponent(id)}/reveal`, { method: "POST" }).then((r) => r.password);

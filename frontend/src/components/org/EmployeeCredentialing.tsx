@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { formatDate } from "@/lib/format";
 import { getLogins, LOGIN_SYSTEMS, revealLoginPassword, saveLogin, type LoginSummary, type LoginSystem } from "@/lib/org/api";
 import { staffCredentialing } from "@/lib/org/profile";
 import type { Staff } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { DetailList, ProfileSection } from "./ProfileParts";
-
-/** How long a revealed password stays on screen. */
-const REVEAL_SECONDS = 30;
+import { RevealedSecret, useRevealedSecret } from "./RevealedSecret";
 
 /**
  * Credentialing: NPI, CAQH Provider ID, and the CAQH ProView / NPPES / PECOS logins (HR and
@@ -68,43 +66,7 @@ export function LoginRow({
   onSaved: (logins: LoginSummary[]) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [revealed, setRevealed] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  // A revealed password disappears on its own.
-  useEffect(() => {
-    if (revealed === null) return;
-    const timer = window.setTimeout(() => {
-      if (secondsLeft <= 1) setRevealed(null);
-      else setSecondsLeft(secondsLeft - 1);
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [revealed, secondsLeft]);
-
-  async function reveal() {
-    setBusy(true);
-    setMessage(null);
-    try {
-      setRevealed(await revealLoginPassword(staffId, system));
-      setSecondsLeft(REVEAL_SECONDS);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "The password couldn't be revealed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copy() {
-    if (revealed === null) return;
-    try {
-      await navigator.clipboard.writeText(revealed);
-      setMessage("Copied.");
-    } catch {
-      setMessage("Couldn't copy. Select the password instead.");
-    }
-  }
+  const secret = useRevealedSecret(() => revealLoginPassword(staffId, system));
 
   if (editing) {
     return (
@@ -118,8 +80,8 @@ export function LoginRow({
             const result = await saveLogin(staffId, system, change);
             onSaved(result.logins);
             setEditing(false);
-            setRevealed(null);
-            setMessage(result.changed.length ? "Saved." : "No changes.");
+            secret.hide();
+            secret.setMessage(result.changed.length ? "Saved." : "No changes.");
           }}
         />
       </li>
@@ -139,31 +101,15 @@ export function LoginRow({
               : "No password saved"}
           </span>
         </span>
-        {revealed !== null && (
-          <span className="login-revealed">
-            <code>{revealed}</code>
-            <button type="button" className="button button-quiet" onClick={copy}>
-              Copy
-            </button>
-            <button type="button" className="button button-quiet" onClick={() => setRevealed(null)}>
-              Hide
-            </button>
-            <span className="muted">Hides in {secondsLeft}s</span>
-          </span>
-        )}
-        {message && (
-          <span className="login-message" role="status">
-            {message}
-          </span>
-        )}
+        <RevealedSecret secret={secret} />
       </div>
       <div className="login-actions">
-        {login?.hasPassword && revealed === null && vaultConfigured && (
-          <button type="button" className="button" onClick={reveal} disabled={busy}>
-            {busy ? "Revealing…" : "Reveal"}
+        {login?.hasPassword && secret.value === null && vaultConfigured && (
+          <button type="button" className="button" onClick={secret.reveal} disabled={secret.busy}>
+            {secret.busy ? "Revealing…" : "Reveal"}
           </button>
         )}
-        <button type="button" className="button" onClick={() => setEditing(true)} disabled={busy}>
+        <button type="button" className="button" onClick={() => setEditing(true)} disabled={secret.busy}>
           Edit
         </button>
       </div>

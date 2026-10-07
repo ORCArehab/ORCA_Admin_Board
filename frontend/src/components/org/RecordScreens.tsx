@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useRoles } from "@/components/RolesProvider";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
+import { canManageFacilityAccess, canSee } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { createFacility, createStaff, getFacility, getStaff, updateFacility, updateStaff } from "@/lib/org/api";
 import { FACILITY_DEFAULTS, facilitySections, STAFF_DEFAULTS, staffSections } from "@/lib/org/fields";
@@ -23,10 +25,11 @@ import {
   staffStatus,
   staffSubtitle,
 } from "@/lib/org/profile";
-import type { Facility, FacilityDetail, StaffAccess, StaffDetail } from "@/lib/org/types";
+import { ACCESS_STATUS_LABELS, labelFor, type Facility, type FacilityAccess, type FacilityDetail, type StaffAccess, type StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { EmployeeCategory } from "./EmployeeCategory";
 import { EmployeeCredentialing } from "./EmployeeCredentialing";
+import { FacilityAccessSection } from "./FacilityAccessSection";
 import { EmployeeDocuments } from "./EmployeeDocuments";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
@@ -195,6 +198,20 @@ export function EmployeeProfile({
             </ProfileSection>
           )}
           {showsCredentialing(staff) && <EmployeeCredentialing staff={staff} />}
+          {detail.facilityAccess && detail.facilityAccess.length > 0 && (
+            <ProfileSection title="Facility access">
+              <LinkRows
+                rows={detail.facilityAccess.map((a) => ({
+                  id: a.id,
+                  label: `${a.facility.abbreviation ? `${a.facility.abbreviation} · ` : ""}${a.facility.name}`,
+                  href: `/facilities/${a.facility.id}`,
+                  detail: ["PointClickCare", a.username, labelFor(ACCESS_STATUS_LABELS, a.status)].filter(Boolean).join(" · "),
+                }))}
+                empty=""
+              />
+              <p className="profile-note">Managed on each facility&apos;s page.</p>
+            </ProfileSection>
+          )}
           <EmployeeDocuments staffId={staff.id} />
           <ProfileSection title="Additional information">
             <DetailList items={staffAdditional(staff)} />
@@ -289,11 +306,33 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
     );
   }
 
-  return <FacilityProfile detail={state.data} flash={flash} onEdit={() => switchTo("edit")} />;
+  return (
+    <FacilityProfile
+      detail={state.data}
+      flash={flash}
+      onEdit={() => switchTo("edit")}
+      onAccessChanged={(pcc) => {
+        state.replace((d) => ({ ...d, access: { pcc } }));
+        state.reload(); // refreshes activity
+      }}
+    />
+  );
 }
 
 /** The read-only facility profile (presentational; FacilityScreen loads the data and owns edit mode). */
-export function FacilityProfile({ detail, flash, onEdit }: { detail: FacilityDetail; flash: string | null; onEdit: () => void }) {
+export function FacilityProfile({
+  detail,
+  flash,
+  onEdit,
+  onAccessChanged = () => {},
+}: {
+  detail: FacilityDetail;
+  flash: string | null;
+  onEdit: () => void;
+  onAccessChanged?: (pcc: FacilityAccess[]) => void;
+}) {
+  const roles = useRoles();
+  const linkStaff = canSee(roles, "employees");
   const { facility, assignments, sourceOwned, events } = detail;
   const address = addressLines(facility.address);
   return (
@@ -336,10 +375,16 @@ export function FacilityProfile({ detail, flash, onEdit }: { detail: FacilityDet
             }
           >
             <LinkRows
-              rows={assignments.map((a) => ({ id: a.id, label: a.staff.displayName, href: `/employees/${a.staff.id}`, detail: ASSIGNMENT_LABELS[a.type] ?? a.type }))}
+              rows={assignments.map((a) => ({
+                id: a.id,
+                label: a.staff.displayName,
+                href: linkStaff ? `/employees/${a.staff.id}` : undefined,
+                detail: ASSIGNMENT_LABELS[a.type] ?? a.type,
+              }))}
               empty="No staff assigned."
             />
           </ProfileSection>
+          {canManageFacilityAccess(roles) && detail.access && <FacilityAccessSection detail={detail} onChanged={onAccessChanged} />}
           <ProfileSection title="Additional information">
             <DetailList items={facilityAdditional(detail)} />
           </ProfileSection>

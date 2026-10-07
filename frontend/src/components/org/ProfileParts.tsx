@@ -85,7 +85,8 @@ export function DetailList({ items, empty }: { items: DetailItem[]; empty?: stri
 export interface LinkRow {
   id: string;
   label: string;
-  href: string;
+  /** Omitted when the viewer can't open the linked page; the row is shown as plain text. */
+  href?: string;
   detail?: string;
 }
 
@@ -96,10 +97,17 @@ export function LinkRows({ rows, empty }: { rows: LinkRow[]; empty: string }) {
     <ul className="link-rows">
       {rows.map((r) => (
         <li key={r.id}>
-          <Link href={r.href}>
-            <span className="link-rows-label">{r.label}</span>
-            {r.detail && <span className="link-rows-detail">{r.detail}</span>}
-          </Link>
+          {r.href ? (
+            <Link href={r.href}>
+              <span className="link-rows-label">{r.label}</span>
+              {r.detail && <span className="link-rows-detail">{r.detail}</span>}
+            </Link>
+          ) : (
+            <span className="link-rows-plain">
+              <span className="link-rows-label">{r.label}</span>
+              {r.detail && <span className="link-rows-detail">{r.detail}</span>}
+            </span>
+          )}
         </li>
       ))}
     </ul>
@@ -124,6 +132,9 @@ const ACTION_LABELS: Record<string, string> = {
   person_unlinked: "Sign-in account unlinked",
   login_updated: "Login changed",
   login_revealed: "Password revealed",
+  facility_access_added: "PCC access added",
+  facility_access_updated: "PCC access changed",
+  facility_access_revealed: "PCC password revealed",
   documents_folder_linked: "Document folder set up",
   document_added: "Document added",
 };
