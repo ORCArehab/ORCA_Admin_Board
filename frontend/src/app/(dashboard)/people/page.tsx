@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
-import { PeopleScreen } from "@/components/PeopleScreen";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "People & Roles · ORCA Admin" };
-
-/** Admins only: the proxy sends anyone else to their own home page, and the ORCA API checks again. */
+/** People & Roles is now part of Employees: Access on each profile, and Accounts without a record. */
 export default function PeoplePage() {
-  return <PeopleScreen />;
+  redirect("/employees?view=accounts");
 }

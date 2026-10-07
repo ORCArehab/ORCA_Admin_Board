@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canManageAccess, canManageFacilityAccess, canSee, canUseApp, homeFor, roleLabel, sectionForPath } from "./access";
+import { assignmentTypesFor, canManageAccess, canManageFacilityAccess, canSee, canUseApp, homeFor, roleLabel, sectionForPath } from "./access";
 
 describe("who can use ORCA Admin and see what", () => {
   it("lets Admin, HR and HIM in, nobody else", () => {
@@ -11,7 +11,7 @@ describe("who can use ORCA Admin and see what", () => {
   });
 
   it("gives HR Employees only; Admin everything", () => {
-    for (const section of ["overview", "providers", "scribes", "schedule", "facilities", "people"] as const) {
+    for (const section of ["overview", "providers", "scribes", "schedule", "facilities"] as const) {
       expect(canSee(["HR"], section)).toBe(false);
       expect(canSee(["ADMIN"], section)).toBe(true);
     }
@@ -20,7 +20,7 @@ describe("who can use ORCA Admin and see what", () => {
   });
 
   it("gives HIM Facilities only, including facility access", () => {
-    for (const section of ["overview", "providers", "scribes", "schedule", "employees", "people"] as const) expect(canSee(["HIM"], section)).toBe(false);
+    for (const section of ["overview", "providers", "scribes", "schedule", "employees"] as const) expect(canSee(["HIM"], section)).toBe(false);
     expect(canSee(["HIM"], "facilities")).toBe(true);
     expect(canManageFacilityAccess(["HIM"])).toBe(true);
     expect(canManageFacilityAccess(["ADMIN"])).toBe(true);
@@ -28,16 +28,23 @@ describe("who can use ORCA Admin and see what", () => {
     expect(homeFor(["HIM"])).toBe("/facilities");
   });
 
-  it("only admins set an employee's Category", () => {
+  it("only admins set an employee's Access", () => {
     expect(canManageAccess(["ADMIN"])).toBe(true);
     expect(canManageAccess(["HR"])).toBe(false);
+  });
+
+  it("splits assignment types the way the API does: coverage to HIM, staffing to HR", () => {
+    expect(assignmentTypesFor(["HIM"])).toEqual(["rounding_provider", "liaison"]);
+    expect(assignmentTypesFor(["HR"])).toEqual(["scribe_coverage", "credentialed", "other"]);
+    expect(assignmentTypesFor(["ADMIN"])).toHaveLength(5);
+    expect(assignmentTypesFor(["PROVIDER"])).toEqual([]);
   });
 
   it("maps pages to sections and sends people to the first page they can see", () => {
     expect(sectionForPath("/")).toBe("overview");
     expect(sectionForPath("/employees/123")).toBe("employees");
     expect(sectionForPath("/schedule")).toBe("schedule");
-    expect(sectionForPath("/people")).toBe("people");
+    expect(sectionForPath("/people")).toBeNull(); // now part of Employees; the page redirects
     expect(sectionForPath("/something-else")).toBeNull();
     expect(homeFor(["ADMIN"])).toBe("/");
     expect(homeFor(["HR"])).toBe("/employees");

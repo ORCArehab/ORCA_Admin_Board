@@ -2,18 +2,59 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRoles } from "@/components/RolesProvider";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { listStaff } from "@/lib/org/api";
-import { ROLE_OPTIONS } from "@/lib/access";
-import { isFormer, staffCategoryLabels, staffPosition, staffSubtitle } from "@/lib/org/profile";
+import { canManageAccess, ROLE_OPTIONS } from "@/lib/access";
+import { isFormer, staffAccessLabels, staffPosition, staffSubtitle } from "@/lib/org/profile";
 import { CATEGORY_LABELS, STAFF_CATEGORIES, type Staff } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
+import { AccountsWithoutRecord } from "./AccountsWithoutRecord";
 import { Avatar } from "./ProfileParts";
 
 type StatusFilter = "current" | "former" | "all";
+export type EmployeesView = "employees" | "accounts";
 
-/** Finding a person, not reading their record: name, title, position, Category and current/former. Each row opens the profile. */
-export function EmployeeList() {
+/**
+ * Finding a person, not reading their record: name, title, Position (their job), Access (their
+ * roles) and current/former. Each row opens the profile. Admins also get Accounts without a
+ * record: sign-in accounts not linked to any employee.
+ */
+export function EmployeeList({ initialView = "employees" }: { initialView?: EmployeesView }) {
+  const admin = canManageAccess(useRoles());
+  const [view, setView] = useState<EmployeesView>(admin ? initialView : "employees");
+  const showView = (next: EmployeesView) => {
+    setView(next);
+    window.history.replaceState(null, "", next === "accounts" ? "/employees?view=accounts" : "/employees");
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Employees"
+        description="Staff records shared by every ORCA app. Position is someone's job; Access is what they can see in ORCA apps."
+        aside={
+          <Link className="button button-primary-sm" href="/employees/new">
+            + New employee
+          </Link>
+        }
+      />
+      {admin && (
+        <div className="segmented view-tabs" role="group" aria-label="Show">
+          <button type="button" className="segment" aria-pressed={view === "employees"} onClick={() => showView("employees")}>
+            Employees
+          </button>
+          <button type="button" className="segment" aria-pressed={view === "accounts"} onClick={() => showView("accounts")}>
+            Accounts without a record
+          </button>
+        </div>
+      )}
+      {view === "accounts" ? <AccountsWithoutRecord /> : <EmployeeDirectory />}
+    </>
+  );
+}
+
+function EmployeeDirectory() {
   const state = useOrgResource(listStaff, []);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("current");
@@ -35,15 +76,6 @@ export function EmployeeList() {
 
   return (
     <>
-      <PageHeader
-        title="Employees"
-        description="Staff records shared by every ORCA app."
-        aside={
-          <Link className="button button-primary-sm" href="/employees/new">
-            + New employee
-          </Link>
-        }
-      />
       {state.status === "loading" && <LoadingState />}
       {state.status === "error" && <ErrorState error={state.error} />}
       {state.status === "ready" && (
@@ -58,14 +90,14 @@ export function EmployeeList() {
                 </option>
               ))}
             </select>
-            <select className="select" aria-label="Category" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="">All categories</option>
+            <select className="select" aria-label="Access" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="">All access</option>
               {ROLE_OPTIONS.map((r) => (
                 <option key={r.key} value={r.key}>
                   {r.label}
                 </option>
               ))}
-              <option value="none">No category</option>
+              <option value="none">No roles</option>
             </select>
             <div className="segmented" role="group" aria-label="Status">
               {(["current", "former", "all"] as const).map((s) => (
@@ -102,7 +134,7 @@ export function EmployeeRow({ staff: s, showState }: { staff: Staff; showState: 
           <span className="directory-name">{s.displayName}</span>
           {subtitle && <span className="directory-sub">{subtitle}</span>}
         </span>
-        <span className="directory-col">{[staffPosition(s), staffCategoryLabels(s).join(", ")].filter(Boolean).join(" · ")}</span>
+        <span className="directory-col">{[staffPosition(s), staffAccessLabels(s).join(", ")].filter(Boolean).join(" · ")}</span>
         <span className="directory-state">
           {showState && <span className={former ? "state-former" : "state-current"}>{former ? "Former" : "Current"}</span>}
           {s.employmentStatus === "onboarding" && <span className="state-note">Onboarding</span>}

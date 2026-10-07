@@ -22,7 +22,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Schedule", href: "/schedule", section: "schedule", isActive: (p) => p.startsWith("/schedule") },
   { label: "Employees", href: "/employees", section: "employees", isActive: (p) => p.startsWith("/employees") },
   { label: "Facilities", href: "/facilities", section: "facilities", isActive: (p) => p.startsWith("/facilities") },
-  { label: "People & Roles", href: "/people", section: "people", isActive: (p) => p.startsWith("/people") },
   { label: "ORCA AI", href: "/ai", section: "overview", soon: true },
 ];
 

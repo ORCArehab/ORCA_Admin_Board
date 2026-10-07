@@ -67,8 +67,8 @@ export function staffPosition(s: Pick<Staff, "category">): string | null {
   return known(CATEGORY_LABELS, s.category);
 }
 
-/** The employee's Category: their roles, labelled, in the order roles are listed. Empty when none or no account. */
-export function staffCategoryLabels(s: Pick<Staff, "access">): string[] {
+/** The employee's Access: their roles, labelled, in the order roles are listed. Empty when none or no account. */
+export function staffAccessLabels(s: Pick<Staff, "access">): string[] {
   const held = s.access?.roles ?? [];
   return ROLE_OPTIONS.filter((r) => held.includes(r.key)).map((r) => r.label);
 }

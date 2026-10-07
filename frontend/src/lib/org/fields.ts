@@ -34,7 +34,7 @@ export function staffSections(isNew: boolean): SectionDef[] {
           label: "Position",
           kind: "select",
           options: CATEGORY_LABELS,
-          hint: "The kind of job. Physicians and NP / PAs appear on the schedule. What someone can see is their Category, set on the profile.",
+          hint: "The kind of job. Physicians and NP / PAs appear on the schedule. What someone can see is their Access, set on the profile.",
         },
         { name: "workEmail", label: "Work email", kind: "email", hint: "Their ORCA email. Lowercased when saved.", autoComplete: "off" },
         { name: "npi", label: "NPI", placeholder: "10 digits", hint: "Providers only. Checked for a valid check digit." },
