@@ -25,7 +25,7 @@ import {
   staffStatus,
   staffSubtitle,
 } from "@/lib/org/profile";
-import { ACCESS_STATUS_LABELS, labelFor, type Facility, type FacilityAccess, type FacilityDetail, type StaffAccess, type StaffDetail } from "@/lib/org/types";
+import { ACCESS_STATUS_LABELS, labelFor, systemLabel, type Facility, type FacilityAccess, type FacilityDetail, type StaffAccess, type StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { AssignmentsSection } from "./AssignmentsSection";
 import { EmployeeAccess } from "./EmployeeAccess";
@@ -224,13 +224,13 @@ export function EmployeeProfile({
           )}
           {showsCredentialing(staff) && <EmployeeCredentialing staff={staff} />}
           {detail.facilityAccess && detail.facilityAccess.length > 0 && (
-            <ProfileSection title="Facility access">
+            <ProfileSection title="Hospital logins">
               <LinkRows
                 rows={detail.facilityAccess.map((a) => ({
                   id: a.id,
                   label: `${a.facility.abbreviation ? `${a.facility.abbreviation} · ` : ""}${a.facility.name}`,
                   href: `/facilities/${a.facility.id}`,
-                  detail: ["PointClickCare", a.username, labelFor(ACCESS_STATUS_LABELS, a.status), (a.usernameSetVia === "portal" || a.passwordSetVia === "portal") && "updated by the provider"].filter(Boolean).join(" · "),
+                  detail: [systemLabel(a), a.username, labelFor(ACCESS_STATUS_LABELS, a.status), (a.usernameSetVia === "portal" || a.passwordSetVia === "portal") && "updated by the provider"].filter(Boolean).join(" · "),
                 }))}
                 empty=""
               />
@@ -336,12 +336,12 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
       detail={state.data}
       flash={flash}
       onEdit={() => switchTo("edit")}
-      onAccessChanged={(pcc) => {
-        state.replace((d) => ({ ...d, access: { pcc } }));
+      onAccessChanged={(logins) => {
+        state.replace((d) => ({ ...d, access: { logins, pcc: logins.filter((a) => a.system === "pcc") } }));
         state.reload(); // refreshes activity
       }}
       onAssignmentsChanged={(message) => {
-        state.reload(); // assignments, PCC "assigned" flags and activity
+        state.reload(); // assignments, hospital-login "assigned" flags and activity
         setFlash(message);
       }}
     />
@@ -359,7 +359,7 @@ export function FacilityProfile({
   detail: FacilityDetail;
   flash: string | null;
   onEdit: () => void;
-  onAccessChanged?: (pcc: FacilityAccess[]) => void;
+  onAccessChanged?: (logins: FacilityAccess[]) => void;
   onAssignmentsChanged?: (message: string) => void;
 }) {
   const roles = useRoles();

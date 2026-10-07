@@ -132,9 +132,10 @@ const ACTION_LABELS: Record<string, string> = {
   person_unlinked: "Sign-in account unlinked",
   login_updated: "Login changed",
   login_revealed: "Password revealed",
-  facility_access_added: "PCC access added",
-  facility_access_updated: "PCC access changed",
-  facility_access_revealed: "PCC password revealed",
+  facility_access_added: "Hospital login added",
+  facility_access_updated: "Hospital login changed",
+  facility_access_revealed: "Hospital login password revealed",
+  facility_access_deleted: "Hospital login deleted",
   documents_folder_linked: "Document folder set up",
   document_added: "Document added",
 };

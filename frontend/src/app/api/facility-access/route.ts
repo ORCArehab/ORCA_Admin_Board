@@ -2,9 +2,9 @@ import type { NextRequest } from "next/server";
 import { errorResponse, jsonResponse, passThroughError, readJsonObject, signedOut, userTokenFor } from "@/lib/apiRoute";
 import { orcaApiRequest } from "@/lib/orcaApi";
 
-const FIELDS = ["staffId", "facilityId", "system", "organization", "username", "password", "loginMethod", "loginMethodDetail", "status", "notes"];
+const FIELDS = ["staffId", "facilityId", "system", "systemName", "organization", "username", "password", "loginMethod", "loginMethodDetail", "status", "notes"];
 
-/** Records a provider's access to a facility's system (PCC). The ORCA API checks facility_access.write (ADMIN, HIM). */
+/** Records a provider's hospital login at a facility (PointClickCare or another system). The ORCA API checks facility_access.write (ADMIN, HIM). */
 export async function POST(req: NextRequest) {
   const body = await readJsonObject(req);
   if (!body) return errorResponse(400, "INVALID", "Invalid request.");

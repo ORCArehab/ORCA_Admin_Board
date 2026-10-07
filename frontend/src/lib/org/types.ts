@@ -145,7 +145,13 @@ export interface StaffDetail {
   events: OrgEvent[];
 }
 
-// ── Provider access to facility systems (PointClickCare) ─────────────
+// ── Hospital logins: provider access to facility systems (PointClickCare and others) ─────────────
+
+/** "PointClickCare", or the other system's name. */
+export const systemLabel = (a: Pick<FacilityAccess, "system" | "systemName">) => (a.system === "pcc" ? "PointClickCare" : (a.systemName ?? "Other system"));
+
+/** Every login on a facility, whichever API version answered. */
+export const facilityLogins = (d: Pick<FacilityDetail, "access">) => d.access?.logins ?? d.access?.pcc ?? [];
 
 export const LOGIN_METHOD_LABELS: Record<string, string> = {
   ringcentral_sms: "RingCentral (text)",
@@ -168,7 +174,9 @@ export const ACCESS_STATUS_LABELS: Record<string, string> = {
 /** One provider's access to one facility's system, pre-joined by the ORCA API. Never a password. */
 export interface FacilityAccess {
   id: string;
-  system: "pcc";
+  /** "pcc" = PointClickCare; "other" = another hospital system, named in systemName. */
+  system: "pcc" | "other";
+  systemName?: string | null;
   staff: { id: string; displayName: string; category: string };
   facility: { id: string; name: string; abbreviation: string | null };
   organization: string | null;
@@ -196,7 +204,8 @@ export interface FacilityDetail {
   aliases: { id: string; alias: string; type: string }[];
   assignments: { id: string; staff: { id: string; displayName: string }; type: string; effectiveFrom: string | null }[];
   /** Present only for people who may see facility access (ADMIN, HIM). */
-  access?: { pcc: FacilityAccess[] };
+  /** logins: every system (newer API); pcc: PointClickCare only (older API). */
+  access?: { logins?: FacilityAccess[]; pcc: FacilityAccess[] };
   sourceOwned: boolean;
   events: OrgEvent[];
 }

@@ -6,7 +6,7 @@
  *   Admin  everything except employee Contracts (unless they also have HR); manages each employee's
  *          Access (roles) and sign-in accounts, all under Employees
  *   HR     Employees, including Contracts; staffing assignments (scribe coverage, credentialed, other)
- *   HIM    Facilities, including provider access to facility systems (PCC) and facility coverage
+ *   HIM    Facilities, including providers' hospital logins (PointClickCare and others) and facility coverage
  *          (rounding providers, liaisons)
  */
 
@@ -16,7 +16,7 @@ export const ROLE_OPTIONS = [
   { key: "SCRIBE", label: "Scribe", description: "Medical scribes." },
   { key: "ADMIN", label: "Admin", description: "Runs ORCA Admin: operations, schedule, employees, facilities and who can sign in." },
   { key: "HR", label: "HR", description: "Employee records, applicants, and employee contracts." },
-  { key: "HIM", label: "HIM", description: "Facility records, provider-facility assignments and facility system access (PCC)." },
+  { key: "HIM", label: "HIM", description: "Facility records, provider-facility assignments and providers' hospital logins." },
   { key: "IT", label: "IT", description: "IT support staff." },
 ] as const;
 export type RoleKey = (typeof ROLE_OPTIONS)[number]["key"];
@@ -40,7 +40,7 @@ const has = (roles: readonly string[], allowed: readonly string[]) => roles.some
 
 export const canUseApp = (roles: readonly string[]) => has(roles, APP_ROLES);
 export const canSee = (roles: readonly string[], section: Section) => has(roles, SECTION_ROLES[section]);
-/** Provider access to facility systems (PCC): view, edit, reveal. Mirrors the API's facility_access.*. */
+/** Providers' hospital logins (PointClickCare and others): view, edit, reveal, delete. Mirrors the API's facility_access.*. */
 export const canManageFacilityAccess = (roles: readonly string[]) => has(roles, ["ADMIN", "HIM"]);
 /** Setting an employee's Access (roles) or turning their account off hands out access, so admins only. */
 export const canManageAccess = (roles: readonly string[]) => roles.includes("ADMIN");

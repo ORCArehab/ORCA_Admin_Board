@@ -561,7 +561,10 @@ button { font: inherit; color: inherit; }
 .role-toggle span { display: grid; gap: 2px; }
 .role-toggle strong { font-size: 14px; font-weight: 500; color: var(--text); }
 .role-toggle small { font-size: 12px; color: var(--text-muted); }
-.access-by-provider { color: var(--accent); }
+.access-group + .access-group { margin-top: 14px; }
+.access-delete-confirm { display: grid; gap: 8px; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--caution-border); border-radius: 6px; background: var(--caution-soft); font-size: 13px; }
+.access-delete-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.login-detail.access-by-provider { color: var(--accent); }
 .access-off { margin: 0 0 10px; font-size: 13px; color: var(--caution); }
 .category-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .docs-locked { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 0; font-size: 13px; color: var(--text-faint); }
@@ -614,7 +617,7 @@ button { font: inherit; color: inherit; }
   .login-editor-grid { grid-template-columns: 1fr; }
 }
 
-/* ── Facility access (PCC) ────────────────────────────── */
+/* ── Hospital logins (PointClickCare and other systems) ────────────────────────────── */
 .access-system { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--text-muted); }
 .access-status { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--text-faint); }
 .access-status-active { color: var(--accent); }
