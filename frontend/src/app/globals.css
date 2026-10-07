@@ -493,11 +493,11 @@ button { font: inherit; color: inherit; }
 .detail-item dd { margin: 0; font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
 @media (max-width: 600px) { .detail-list { grid-template-columns: 1fr; } }
 
-.link-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.link-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
 .link-rows a { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 8px 10px; margin: 0 -10px; border-radius: 6px; }
 .link-rows a:hover { background: var(--surface); }
 .link-rows a:hover .link-rows-label { color: var(--accent); }
-.link-rows-label { font-size: 15px; color: var(--text); }
+.link-rows-label { font-size: 15px; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
 .link-rows-detail { font-size: 13px; color: var(--text-faint); white-space: nowrap; }
 .profile-address { font-style: normal; display: grid; gap: 2px; font-size: 15px; }
 .profile-empty { margin: 0; font-size: 14px; color: var(--text-faint); }
@@ -525,8 +525,10 @@ button { font: inherit; color: inherit; }
 .docs-group:first-of-type { margin-top: 2px; }
 .docs-group-label { margin: 0 0 4px; font-size: 13px; font-weight: 500; color: var(--text-muted); }
 .docs-group-empty { margin: 0; padding: 6px 0; font-size: 13px; color: var(--text-faint); }
-.docs-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.docs-file { display: flex; align-items: baseline; gap: 14px; padding: 7px 10px; margin: 0 -10px; border-radius: 6px; }
+/* minmax(0, 1fr): a long file name must not widen the column into the Activity side column. */
+.docs-files { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.docs-files li { min-width: 0; }
+.docs-file { display: flex; align-items: baseline; gap: 14px; padding: 7px 10px; margin: 0 -10px; border-radius: 6px; min-width: 0; }
 .docs-file:hover { background: var(--surface); }
 .docs-file:hover .docs-file-name, .docs-file:hover .docs-file-open { color: var(--accent); }
 .docs-file-name { font-size: 15px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
