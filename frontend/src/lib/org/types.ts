@@ -87,6 +87,12 @@ export interface Staff {
   endDate: string | null;
   npi: string | null;
   directoryVisible: boolean;
+  /** Work line (visible to all staff). */
+  ringcentralPhone?: string | null;
+  /** HR and ADMIN only; absent when the API withholds them. */
+  personalPhone?: string | null;
+  personalEmail?: string | null;
+  caqhProviderId?: string | null;
   createdAt: string;
   updatedAt: string;
   /** Present for HR and admins. */

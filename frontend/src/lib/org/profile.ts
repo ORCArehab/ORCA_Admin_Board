@@ -43,6 +43,8 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+
 // ── Employees ───────────────────────────────────────────
 
 export const isFormer = (s: Pick<Staff, "employmentStatus">) => s.employmentStatus === "separated";
@@ -79,6 +81,7 @@ export function staffStatus(s: Pick<Staff, "employmentStatus">): string | null {
 export function staffOverview(s: Staff): DetailItem[] {
   return items([
     present(s.workEmail) && { label: "Work email", value: s.workEmail, href: `mailto:${s.workEmail}` },
+    present(s.ringcentralPhone) && { label: "RingCentral phone", value: s.ringcentralPhone, href: telHref(s.ringcentralPhone) },
     { label: "Job title", value: s.title ?? "" },
     { label: "Position", value: staffPosition(s) ?? "" },
     { label: "Employment type", value: known(EMPLOYMENT_TYPE_LABELS, s.employmentType) ?? "" },
@@ -88,11 +91,31 @@ export function staffOverview(s: Staff): DetailItem[] {
   ]);
 }
 
+/** Personal contact details (HR and ADMIN only). Empty when none are recorded or the API withholds them. */
+export function staffPersonalContact(s: Staff): DetailItem[] {
+  return items([
+    present(s.personalPhone) && { label: "Personal phone", value: s.personalPhone, href: telHref(s.personalPhone) },
+    present(s.personalEmail) && { label: "Personal email", value: s.personalEmail, href: `mailto:${s.personalEmail}` },
+  ]);
+}
+
+/** Provider identifiers shown in the Credentialing section. */
+export function staffCredentialing(s: Staff): DetailItem[] {
+  return items([
+    { label: "NPI", value: s.npi ?? "" },
+    { label: "CAQH Provider ID", value: s.caqhProviderId ?? "" },
+  ]);
+}
+
+/** Whether the profile shows Credentialing (identifiers and CAQH/NPPES/PECOS logins). */
+export const showsCredentialing = (s: Staff) => isSchedulable(s) || present(s.npi) || present(s.caqhProviderId);
+
 /** Less frequently needed details. Always includes the staff number, so the section is never empty. */
 export function staffAdditional(s: Staff): DetailItem[] {
   return items([
     { label: "Credentials", value: s.credentials ?? "" },
-    { label: "NPI", value: s.npi ?? "" },
+    // NPI and CAQH live in Credentialing when that section shows.
+    !showsCredentialing(s) && { label: "NPI", value: s.npi ?? "" },
     { label: "Preferred name", value: s.preferredName ?? "" },
     { label: "Middle name", value: s.middleName ?? "" },
     { label: "Staff number", value: s.staffNumber },

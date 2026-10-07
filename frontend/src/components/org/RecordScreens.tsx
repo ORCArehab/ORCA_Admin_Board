@@ -15,6 +15,8 @@ import {
   facilityStatus,
   facilityType,
   isSchedulable,
+  showsCredentialing,
+  staffPersonalContact,
   staffAdditional,
   staffPosition,
   staffOverview,
@@ -24,6 +26,7 @@ import {
 import type { Facility, FacilityDetail, StaffAccess, StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { EmployeeCategory } from "./EmployeeCategory";
+import { EmployeeCredentialing } from "./EmployeeCredentialing";
 import { EmployeeDocuments } from "./EmployeeDocuments";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
@@ -165,6 +168,11 @@ export function EmployeeProfile({
           <ProfileSection title="Overview">
             <DetailList items={staffOverview(staff)} empty="No details recorded yet." />
           </ProfileSection>
+          {staffPersonalContact(staff).length > 0 && (
+            <ProfileSection title="Personal contact">
+              <DetailList items={staffPersonalContact(staff)} />
+            </ProfileSection>
+          )}
           <EmployeeCategory staff={staff} onSaved={onAccessSaved} />
           <ProfileSection title="Facility assignments">
             <LinkRows
@@ -186,6 +194,7 @@ export function EmployeeProfile({
               </Link>
             </ProfileSection>
           )}
+          {showsCredentialing(staff) && <EmployeeCredentialing staff={staff} />}
           <EmployeeDocuments staffId={staff.id} />
           <ProfileSection title="Additional information">
             <DetailList items={staffAdditional(staff)} />
