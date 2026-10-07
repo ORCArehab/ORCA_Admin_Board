@@ -139,7 +139,9 @@ function FileGroup({ label, files }: { label: string; files: DocumentFile[] }) {
           {files.map((f) => (
             <li key={f.id}>
               <a href={f.url} target="_blank" rel="noreferrer" className="docs-file">
-                <span className="docs-file-name">{f.name}</span>
+                <span className="docs-file-name" title={f.name}>
+                  {f.name}
+                </span>
                 <span className="docs-file-detail">{fileDetail(f)}</span>
                 <span className="docs-file-open" aria-hidden="true">
                   View ↗
