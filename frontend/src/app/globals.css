@@ -180,6 +180,7 @@ button { font: inherit; color: inherit; }
 }
 
 /* ── Segmented control ─────────────────────────────────── */
+.view-tabs { margin-bottom: 16px; }
 .segmented { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; background: var(--surface); }
 .segment { border: 0; background: none; padding: 5px 12px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .segment + .segment { border-left: 1px solid var(--border-strong); }
@@ -560,6 +561,7 @@ button { font: inherit; color: inherit; }
 .role-toggle span { display: grid; gap: 2px; }
 .role-toggle strong { font-size: 14px; font-weight: 500; color: var(--text); }
 .role-toggle small { font-size: 12px; color: var(--text-muted); }
+.access-off { margin: 0 0 10px; font-size: 13px; color: var(--caution); }
 .category-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .docs-locked { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 0; font-size: 13px; color: var(--text-faint); }
 
@@ -623,4 +625,19 @@ button { font: inherit; color: inherit; }
   background: var(--bg); color: var(--text); font: inherit; font-size: 13px; resize: vertical;
 }
 .link-button { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+/* Facility assignments: a link-rows list with End per row and an inline Assign form. */
+.profile-section-actions { display: inline-flex; align-items: baseline; gap: 12px; }
+.assignment-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.assignment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid var(--border); min-width: 0; }
+.assignment-row:last-child { border-bottom: 0; }
+.assignment-main { flex: 1 1 240px; min-width: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.assignment-link:hover { color: var(--accent); }
+.assignment-end { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0 6px; font-size: 13px; }
+.assignment-end input { width: auto; }
+.assignment-form { display: grid; gap: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.assignment-form-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; }
+@media (max-width: 720px) {
+  .assignment-form-grid { grid-template-columns: 1fr; }
+  .assignment-main { flex-wrap: wrap; }
+}
 .link-rows-plain { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 8px 10px; margin: 0 -10px; }

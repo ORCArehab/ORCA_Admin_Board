@@ -2,48 +2,42 @@
 
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
-import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
+import { ErrorState, LoadingState } from "@/components/ui";
 import { ROLE_OPTIONS } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { OrgError } from "@/lib/org/api";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { addPerson, listPeople, setPersonActive, setPersonRoles, type Person } from "@/lib/people";
-import { Avatar } from "./org/ProfileParts";
+import { Avatar } from "./ProfileParts";
+
+/** "New employee", prefilled from a sign-in account; saving it links the account to the record. */
+export function newEmployeeHref(p: Pick<Person, "email" | "name">): string {
+  const query = new URLSearchParams({ account: p.email });
+  if (p.name) query.set("name", p.name);
+  return `/employees/new?${query}`;
+}
 
 /**
- * Everyone who can sign in to ORCA apps and their roles (what they can see). An employee's roles
- * are also their Category on their profile; accounts not linked to an employee record (or added
- * before their first sign-in) are managed here. Every change is recorded with your name.
+ * Admins only (Employees → Accounts without a record): sign-in accounts not linked to any
+ * employee record, such as someone added before their record existed or a shared mailbox. An
+ * admin can create the employee record, change the account's roles, or turn it off. Everyone with
+ * a record is managed on their profile (Access). Every change is recorded with your name.
  */
-export function PeopleScreen() {
-  const state = useOrgResource(() => listPeople(), []);
+export function AccountsWithoutRecord() {
+  const state = useOrgResource(() => listPeople().then((people) => people.filter((p) => !p.staff)), []);
   const [query, setQuery] = useState("");
-  const [role, setRole] = useState("");
   const [adding, setAdding] = useState(false);
 
   const all = useMemo(() => (state.status === "ready" ? state.data : []), [state]);
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return all.filter(
-      (p) =>
-        (!role || (role === "none" ? p.roles.length === 0 : p.roles.includes(role))) &&
-        (!q || [p.name, p.email, p.staff?.displayName].some((v) => v?.toLowerCase().includes(q))),
-    );
-  }, [all, query, role]);
+    return all.filter((p) => !q || [p.name, p.email].some((v) => v?.toLowerCase().includes(q)));
+  }, [all, query]);
 
   const update = (id: string, change: (p: Person) => Person) => state.replace((people) => people.map((p) => (p.id === id ? change(p) : p)));
 
   return (
     <>
-      <PageHeader
-        title="People & Roles"
-        description="Who can sign in to ORCA apps, and what each person can see. An employee's roles also show as their Category on their profile."
-        aside={
-          <button type="button" className="button button-primary-sm" onClick={() => setAdding((a) => !a)}>
-            + Add person
-          </button>
-        }
-      />
       {adding && (
         <AddPerson
           onCancel={() => setAdding(false)}
@@ -58,22 +52,21 @@ export function PeopleScreen() {
       {state.status === "ready" && (
         <>
           <div className="directory-toolbar">
-            <input className="search" type="search" placeholder="Search name, email or employee" aria-label="Search people" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <select className="select" aria-label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="">All roles</option>
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r.key} value={r.key}>
-                  {r.label}
-                </option>
-              ))}
-              <option value="none">No roles</option>
-            </select>
-            <span className="table-count">{rows.length === all.length ? `${all.length} people` : `${rows.length} of ${all.length}`}</span>
+            <input className="search" type="search" placeholder="Search name or email" aria-label="Search accounts" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <span className="table-count">{rows.length === all.length ? `${all.length} accounts` : `${rows.length} of ${all.length}`}</span>
+            {!adding && (
+              <button type="button" className="button" onClick={() => setAdding(true)}>
+                + Add sign-in account
+              </button>
+            )}
           </div>
+          <p className="profile-note profile-note-lead">
+            These accounts can sign in to ORCA apps but aren&apos;t linked to an employee record. Create the record to manage them like everyone else, or turn off accounts nobody should use.
+          </p>
           {rows.length === 0 ? (
-            <p className="directory-empty">Nobody matches these filters.</p>
+            <p className="directory-empty">{all.length === 0 ? "Every sign-in account has an employee record." : "No accounts match."}</p>
           ) : (
-            <ul className="people-list" aria-label="People">
+            <ul className="people-list" aria-label="Accounts without a record">
               {rows.map((p) => (
                 <PersonRow key={p.id} person={p} onChange={(change) => update(p.id, change)} />
               ))}
@@ -128,16 +121,6 @@ function PersonRow({ person: p, onChange }: { person: Person; onChange: (change:
           <span className="directory-name">{p.name ?? p.email}</span>
           <span className="directory-sub">
             {p.email}
-            {p.staff ? (
-              <>
-                {" · "}
-                <Link className="text-link" href={`/employees/${p.staff.id}`}>
-                  {p.staff.displayName}
-                </Link>
-              </>
-            ) : (
-              " · no employee record linked"
-            )}
             {" · "}
             {p.lastSignInAt ? `last signed in ${formatDate(p.lastSignInAt)}` : "hasn't signed in yet"}
           </span>
@@ -179,6 +162,9 @@ function PersonRow({ person: p, onChange }: { person: Person; onChange: (change:
               <button type="button" className="button" onClick={toggleActive} disabled={busy}>
                 {p.active ? "Turn off" : "Turn on"}
               </button>
+              <Link className="button button-primary-sm" href={newEmployeeHref(p)}>
+                Create employee record
+              </Link>
             </>
           )}
         </div>
@@ -225,7 +211,7 @@ function AddPerson({ onCancel, onAdded }: { onCancel: () => void; onAdded: () =>
         </button>
       </div>
       {error && <p className="docs-error" role="alert">{error}</p>}
-      <p className="field-hint">Add someone before their first sign-in so their roles are ready. To give an employee roles, you can also set their Category on their profile.</p>
+      <p className="field-hint">Add someone before their first sign-in so their roles are ready. For an employee, create their record instead and set Access on their profile.</p>
     </form>
   );
 }

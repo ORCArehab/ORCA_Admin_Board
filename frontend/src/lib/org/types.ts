@@ -60,7 +60,7 @@ export function labelFor(labels: Record<string, string>, value: string | null | 
   return value ? (labels[value] ?? value) : "—";
 }
 
-/** An employee's Category: the roles on their linked sign-in account (null = no account linked). */
+/** An employee's Access: the roles on their linked sign-in account (null = no account linked). */
 export interface StaffAccess {
   personId: string;
   email: string;
@@ -126,6 +126,14 @@ export interface OrgEvent {
   actor: string;
   at: string;
 }
+
+export const ASSIGNMENT_LABELS: Record<string, string> = {
+  rounding_provider: "Rounding provider",
+  scribe_coverage: "Scribe coverage",
+  credentialed: "Credentialed",
+  liaison: "Liaison",
+  other: "Other",
+};
 
 export interface StaffDetail {
   staff: Staff;

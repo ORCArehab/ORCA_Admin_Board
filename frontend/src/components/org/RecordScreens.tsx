@@ -6,8 +6,8 @@ import { useMemo, useState } from "react";
 import { useRoles } from "@/components/RolesProvider";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { canManageFacilityAccess, canSee } from "@/lib/access";
-import { formatDate } from "@/lib/format";
-import { createFacility, createStaff, getFacility, getStaff, updateFacility, updateStaff } from "@/lib/org/api";
+import { createFacility, createStaff, getFacility, getStaff, setStaffAccess, updateFacility, updateStaff } from "@/lib/org/api";
+import { listPeople } from "@/lib/people";
 import { FACILITY_DEFAULTS, facilitySections, STAFF_DEFAULTS, staffSections } from "@/lib/org/fields";
 import { toFormValues } from "@/lib/org/form";
 import {
@@ -27,20 +27,13 @@ import {
 } from "@/lib/org/profile";
 import { ACCESS_STATUS_LABELS, labelFor, type Facility, type FacilityAccess, type FacilityDetail, type StaffAccess, type StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
-import { EmployeeCategory } from "./EmployeeCategory";
+import { AssignmentsSection } from "./AssignmentsSection";
+import { EmployeeAccess } from "./EmployeeAccess";
 import { EmployeeCredentialing } from "./EmployeeCredentialing";
 import { FacilityAccessSection } from "./FacilityAccessSection";
 import { EmployeeDocuments } from "./EmployeeDocuments";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
-
-const ASSIGNMENT_LABELS: Record<string, string> = {
-  rounding_provider: "Rounding provider",
-  scribe_coverage: "Scribe coverage",
-  credentialed: "Credentialed",
-  liaison: "Liaison",
-  other: "Other",
-};
 
 const facilityValues = (sections: ReturnType<typeof facilitySections>, f: Facility) => toFormValues(sections, { ...f, archived: f.archivedAt !== null });
 
@@ -54,20 +47,49 @@ const employeesBack = (
   </Link>
 );
 
-export function NewEmployeeScreen() {
+/** Splits an account's display name into first and last for the form; the admin can correct it. */
+function nameParts(name: string | null): { firstName?: string; lastName?: string } {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return words.length ? { firstName: words[0] } : {};
+  return { firstName: words.slice(0, -1).join(" "), lastName: words[words.length - 1] };
+}
+
+/**
+ * "New employee". From Accounts without a record, `account` prefills the form and, once saved,
+ * links that sign-in account to the new record (keeping its roles), so it moves into Employees.
+ */
+export function NewEmployeeScreen({ account = null }: { account?: { email: string; name: string | null } | null }) {
   const router = useRouter();
   const sections = useMemo(() => staffSections(true), []);
+  const defaults = useMemo(
+    () => toFormValues(sections, null, { ...STAFF_DEFAULTS, ...(account ? { workEmail: account.email, ...nameParts(account.name) } : {}) }),
+    [sections, account],
+  );
   return (
     <>
-      <PageHeader back={employeesBack} title="New employee" description="Adds a staff record. A staff number is assigned when it's saved." />
+      <PageHeader
+        back={employeesBack}
+        title="New employee"
+        description={
+          account
+            ? `Creates the employee record for ${account.email} and links their sign-in account to it. A staff number is assigned when it's saved.`
+            : "Adds a staff record. A staff number is assigned when it's saved."
+        }
+      />
       <RecordForm
         sections={sections}
         initial={null}
-        defaults={toFormValues(sections, null, STAFF_DEFAULTS)}
+        defaults={defaults}
         submitLabel="Create employee"
-        onCancel={() => router.push("/employees")}
+        onCancel={() => router.push(account ? "/employees?view=accounts" : "/employees")}
         onSubmit={async (payload) => {
           const staff = await createStaff(payload);
+          if (account) {
+            // Link the account, keeping whatever roles it already has. If that fails, the record
+            // still exists and Access on the profile can link it.
+            const person = (await listPeople().catch(() => [])).find((p) => p.email.toLowerCase() === account.email.toLowerCase());
+            await setStaffAccess(staff.id, person?.roles ?? [], account.email).catch(() => null);
+          }
           router.push(`/employees/${staff.id}?created=1`);
         }}
       />
@@ -129,9 +151,14 @@ export function EmployeeScreen({ id, created }: { id: string; created: boolean }
       detail={state.data}
       flash={flash}
       onEdit={() => switchTo("edit")}
-      onAccessSaved={(access) => {
+      onAccessSaved={(access, message) => {
         state.replace((d) => ({ ...d, staff: { ...d.staff, access } }));
-        setFlash("Category saved.");
+        state.reload(); // refreshes the activity list
+        setFlash(message);
+      }}
+      onAssignmentsChanged={(message) => {
+        state.reload();
+        setFlash(message);
       }}
     />
   );
@@ -143,11 +170,13 @@ export function EmployeeProfile({
   flash,
   onEdit,
   onAccessSaved = () => {},
+  onAssignmentsChanged = () => {},
 }: {
   detail: StaffDetail;
   flash: string | null;
   onEdit: () => void;
-  onAccessSaved?: (access: StaffAccess) => void;
+  onAccessSaved?: (access: StaffAccess, message: string) => void;
+  onAssignmentsChanged?: (message: string) => void;
 }) {
   const { staff, assignments, sourceOwned, events } = detail;
   const schedulable = isSchedulable(staff);
@@ -176,19 +205,15 @@ export function EmployeeProfile({
               <DetailList items={staffPersonalContact(staff)} />
             </ProfileSection>
           )}
-          <EmployeeCategory staff={staff} onSaved={onAccessSaved} />
-          <ProfileSection title="Facility assignments">
-            <LinkRows
-              rows={assignments.map((a) => ({
-                id: a.id,
-                label: a.facility.name,
-                href: `/facilities/${a.facility.id}`,
-                detail: [ASSIGNMENT_LABELS[a.type] ?? a.type, a.effectiveFrom && `since ${formatDate(a.effectiveFrom)}`].filter(Boolean).join(" · "),
-              }))}
-              empty="No facility assignments."
-            />
-            <p className="profile-note">Assignments are managed in the employee portal. Open a facility to see everyone assigned there.</p>
-          </ProfileSection>
+          <EmployeeAccess staff={staff} onSaved={onAccessSaved} />
+          <AssignmentsSection
+            side="employee"
+            ownerId={staff.id}
+            title="Facility assignments"
+            rows={assignments.map((a) => ({ id: a.id, type: a.type, effectiveFrom: a.effectiveFrom, other: { id: a.facility.id, label: a.facility.name, href: `/facilities/${a.facility.id}` } }))}
+            empty="Not assigned to any facility."
+            onChanged={onAssignmentsChanged}
+          />
           {schedulable && (
             <ProfileSection title="Schedule">
               <p className="profile-note profile-note-lead">This provider&apos;s entries on the weekly schedule board.</p>
@@ -315,6 +340,10 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
         state.replace((d) => ({ ...d, access: { pcc } }));
         state.reload(); // refreshes activity
       }}
+      onAssignmentsChanged={(message) => {
+        state.reload(); // assignments, PCC "assigned" flags and activity
+        setFlash(message);
+      }}
     />
   );
 }
@@ -325,11 +354,13 @@ export function FacilityProfile({
   flash,
   onEdit,
   onAccessChanged = () => {},
+  onAssignmentsChanged = () => {},
 }: {
   detail: FacilityDetail;
   flash: string | null;
   onEdit: () => void;
   onAccessChanged?: (pcc: FacilityAccess[]) => void;
+  onAssignmentsChanged?: (message: string) => void;
 }) {
   const roles = useRoles();
   const linkStaff = canSee(roles, "employees");
@@ -366,24 +397,24 @@ export function FacilityProfile({
           <ProfileSection title="Contact">
             <DetailList items={facilityContact(facility)} empty="No phone, fax or email recorded." />
           </ProfileSection>
-          <ProfileSection
+          <AssignmentsSection
+            side="facility"
+            ownerId={facility.id}
             title="Assigned staff"
             action={
               <Link className="text-link profile-section-link" href={`/schedule?view=facilities&facility=${encodeURIComponent(facility.id)}`}>
                 View schedule
               </Link>
             }
-          >
-            <LinkRows
-              rows={assignments.map((a) => ({
-                id: a.id,
-                label: a.staff.displayName,
-                href: linkStaff ? `/employees/${a.staff.id}` : undefined,
-                detail: ASSIGNMENT_LABELS[a.type] ?? a.type,
-              }))}
-              empty="No staff assigned."
-            />
-          </ProfileSection>
+            rows={assignments.map((a) => ({
+              id: a.id,
+              type: a.type,
+              effectiveFrom: a.effectiveFrom,
+              other: { id: a.staff.id, label: a.staff.displayName, href: linkStaff ? `/employees/${a.staff.id}` : undefined },
+            }))}
+            empty="No staff assigned."
+            onChanged={onAssignmentsChanged}
+          />
           {canManageFacilityAccess(roles) && detail.access && <FacilityAccessSection detail={detail} onChanged={onAccessChanged} />}
           <ProfileSection title="Additional information">
             <DetailList items={facilityAdditional(detail)} />

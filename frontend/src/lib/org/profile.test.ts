@@ -8,7 +8,7 @@ import {
   isSchedulable,
   showsCredentialing,
   staffAdditional,
-  staffCategoryLabels,
+  staffAccessLabels,
   staffCredentialing,
   staffOverview,
   staffPersonalContact,
@@ -91,10 +91,10 @@ describe("employee profile", () => {
     expect(staffAdditional(staff({ category: "administrative", npi: null })).map((i) => i.label)).toEqual(["Credentials", "Staff number"]);
   });
 
-  it("Category is the account's roles, in the standard order; none without an account", () => {
-    expect(staffCategoryLabels(staff())).toEqual([]);
-    expect(staffCategoryLabels(staff({ access: null }))).toEqual([]);
-    expect(staffCategoryLabels(staff({ access: { personId: "p", email: "a@orcarehab.com", active: true, roles: ["IT", "HR", "PROVIDER"] } }))).toEqual(["Provider", "HR", "IT"]);
+  it("Access is the account's roles, in the standard order; none without an account", () => {
+    expect(staffAccessLabels(staff())).toEqual([]);
+    expect(staffAccessLabels(staff({ access: null }))).toEqual([]);
+    expect(staffAccessLabels(staff({ access: { personId: "p", email: "a@orcarehab.com", active: true, roles: ["IT", "HR", "PROVIDER"] } }))).toEqual(["Provider", "HR", "IT"]);
   });
 
   it("uses title, then credentials, as the subtitle; schedulable = physician or NP/PA", () => {

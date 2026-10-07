@@ -48,7 +48,7 @@ export const listStaff = () => request<{ staff: Staff[] }>(`${path("staff")}?inc
 export const getStaff = (id: string) => request<StaffDetail>(path("staff", id));
 export const createStaff = (input: Record<string, unknown>) => request<{ staff: Staff }>(path("staff"), post(input)).then((r) => r.staff);
 export const updateStaff = (id: string, changes: Record<string, unknown>) => request<{ changed: string[]; staff: Staff }>(path("staff", id), patch(changes));
-/** Sets the employee's Category (exactly these roles). `email` links an unlinked record to that ORCA account first. */
+/** Sets the employee's Access (exactly these roles). `email` links an unlinked record to that ORCA account first. */
 export const setStaffAccess = (id: string, roles: string[], email?: string) =>
   request<{ changed: boolean; access: StaffAccess }>(`${path("staff", id)}/access`, { method: "PUT", body: JSON.stringify({ roles, ...(email ? { email } : {}) }) }).then((r) => r.access);
 
@@ -58,6 +58,16 @@ export const getFacility = (id: string) => request<FacilityDetail>(path("facilit
 export const createFacility = (input: Record<string, unknown>) => request<{ facility: Facility }>(path("facilities"), post(input)).then((r) => r.facility);
 export const updateFacility = (id: string, changes: Record<string, unknown>) =>
   request<{ changed: string[]; facility: Facility }>(path("facilities", id), patch(changes));
+
+// ── Facility assignments (who covers which facility) ─────────────
+// Reads come with the employee and facility. The ORCA API checks the type: rounding provider and
+// liaison need HIM or ADMIN; scribe coverage, credentialed and other need HR or ADMIN.
+
+export const createAssignment = (input: { staffId: string; facilityId: string; type: string; effectiveFrom?: string }) =>
+  request<unknown>("/api/assignments", post(input));
+
+/** Ends a current assignment; it stays in the history. `effectiveTo` is a yyyy-mm-dd date. */
+export const endAssignment = (id: string, effectiveTo: string) => request<unknown>(`/api/assignments/${encodeURIComponent(id)}/end`, post({ effectiveTo }));
 
 // ── Credentialing logins (CAQH, NPPES, PECOS) ─────────────
 // Passwords never come back from these calls except revealLoginPassword, which the ORCA API
