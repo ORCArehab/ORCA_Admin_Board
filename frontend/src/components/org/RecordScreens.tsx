@@ -3,19 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { useRoles } from "@/components/RolesProvider";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
-import { canManageFacilityAccess, canSee } from "@/lib/access";
 import { createFacility, createStaff, getFacility, getStaff, setStaffAccess, updateFacility, updateStaff } from "@/lib/org/api";
 import { listPeople } from "@/lib/people";
 import { FACILITY_DEFAULTS, facilitySections, STAFF_DEFAULTS, staffSections } from "@/lib/org/fields";
 import { toFormValues } from "@/lib/org/form";
 import {
-  addressLines,
-  facilityAdditional,
-  facilityContact,
-  facilityStatus,
-  facilityType,
   isSchedulable,
   showsCredentialing,
   staffPersonalContact,
@@ -25,13 +18,13 @@ import {
   staffStatus,
   staffSubtitle,
 } from "@/lib/org/profile";
-import { ACCESS_STATUS_LABELS, labelFor, systemLabel, type Facility, type FacilityAccess, type FacilityDetail, type StaffAccess, type StaffDetail } from "@/lib/org/types";
+import { ACCESS_STATUS_LABELS, labelFor, systemLabel, type Facility, type StaffAccess, type StaffDetail } from "@/lib/org/types";
 import { useOrgResource } from "@/lib/org/useOrgResource";
 import { AssignmentsSection } from "./AssignmentsSection";
 import { EmployeeAccess } from "./EmployeeAccess";
 import { EmployeeCredentialing } from "./EmployeeCredentialing";
-import { FacilityAccessSection } from "./FacilityAccessSection";
 import { EmployeeDocuments } from "./EmployeeDocuments";
+import { FacilityProfile } from "./FacilityProfile";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
 import { RecordForm } from "./RecordForm";
 
@@ -282,7 +275,7 @@ export function NewFacilityScreen() {
   );
 }
 
-export function FacilityScreen({ id, created }: { id: string; created: boolean }) {
+export function FacilityScreen({ id, created, tab }: { id: string; created: boolean; tab?: string }) {
   const state = useOrgResource(() => getFacility(id), [id]);
   const sections = useMemo(() => facilitySections(false), []);
   const [mode, setMode] = useState<Mode>("view");
@@ -335,7 +328,13 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
     <FacilityProfile
       detail={state.data}
       flash={flash}
+      initialTab={tab}
       onEdit={() => switchTo("edit")}
+      onContactsChanged={(contacts, message) => {
+        state.replace((d) => ({ ...d, contacts }));
+        state.reload(); // refreshes activity
+        setFlash(message);
+      }}
       onAccessChanged={(logins) => {
         state.replace((d) => ({ ...d, access: { logins, pcc: logins.filter((a) => a.system === "pcc") } }));
         state.reload(); // refreshes activity
@@ -345,87 +344,6 @@ export function FacilityScreen({ id, created }: { id: string; created: boolean }
         setFlash(message);
       }}
     />
-  );
-}
-
-/** The read-only facility profile (presentational; FacilityScreen loads the data and owns edit mode). */
-export function FacilityProfile({
-  detail,
-  flash,
-  onEdit,
-  onAccessChanged = () => {},
-  onAssignmentsChanged = () => {},
-}: {
-  detail: FacilityDetail;
-  flash: string | null;
-  onEdit: () => void;
-  onAccessChanged?: (logins: FacilityAccess[]) => void;
-  onAssignmentsChanged?: (message: string) => void;
-}) {
-  const roles = useRoles();
-  const linkStaff = canSee(roles, "employees");
-  const { facility, assignments, sourceOwned, events } = detail;
-  const address = addressLines(facility.address);
-  return (
-    <>
-      <ProfileHeader
-        back={facilitiesBack}
-        badge={facility.abbreviation ? <span className="facility-badge facility-badge-lg">{facility.abbreviation}</span> : <Avatar name={facility.name} size="lg" />}
-        title={facility.name}
-        meta={[facilityType(facility), facility.address.city, facilityStatus(facility)]}
-        action={
-          <button type="button" className="button button-primary-sm" onClick={onEdit}>
-            Edit facility
-          </button>
-        }
-      />
-      {flash && <p className="record-banner" role="status">{flash}</p>}
-      <div className="profile-layout">
-        <div className="profile-main">
-          <ProfileSection title="Location">
-            {address.length > 0 || facility.county ? (
-              <address className="profile-address">
-                {address.map((line) => (
-                  <span key={line}>{line}</span>
-                ))}
-                {facility.county && <span className={address.length > 0 ? "muted" : undefined}>{facility.county} County</span>}
-              </address>
-            ) : (
-              <p className="profile-empty">No address recorded.</p>
-            )}
-          </ProfileSection>
-          <ProfileSection title="Contact">
-            <DetailList items={facilityContact(facility)} empty="No phone, fax or email recorded." />
-          </ProfileSection>
-          <AssignmentsSection
-            side="facility"
-            ownerId={facility.id}
-            title="Assigned staff"
-            action={
-              <Link className="text-link profile-section-link" href={`/schedule?view=facilities&facility=${encodeURIComponent(facility.id)}`}>
-                View schedule
-              </Link>
-            }
-            rows={assignments.map((a) => ({
-              id: a.id,
-              type: a.type,
-              effectiveFrom: a.effectiveFrom,
-              other: { id: a.staff.id, label: a.staff.displayName, href: linkStaff ? `/employees/${a.staff.id}` : undefined },
-            }))}
-            empty="No staff assigned."
-            onChanged={onAssignmentsChanged}
-          />
-          {canManageFacilityAccess(roles) && detail.access && <FacilityAccessSection detail={detail} onChanged={onAccessChanged} />}
-          <ProfileSection title="Additional information">
-            <DetailList items={facilityAdditional(detail)} />
-          </ProfileSection>
-        </div>
-        <aside className="profile-aside">
-          {sourceOwned && <SourceNote source="Master HIM 1" />}
-          <History events={events} />
-        </aside>
-      </div>
-    </>
   );
 }
 

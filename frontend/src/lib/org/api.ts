@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api";
-import type { Facility, FacilityAccess, FacilityDetail, FieldError, OrgKind, Staff, StaffAccess, StaffDetail } from "./types";
+import type { ContactInput, Facility, FacilityAccess, FacilityContact, FacilityDetail, FieldError, OrgKind, Staff, StaffAccess, StaffDetail } from "./types";
 
 /**
  * Browser client for this app's same-origin /api/org/* routes. Those run on the server and
@@ -58,6 +58,17 @@ export const getFacility = (id: string) => request<FacilityDetail>(path("facilit
 export const createFacility = (input: Record<string, unknown>) => request<{ facility: Facility }>(path("facilities"), post(input)).then((r) => r.facility);
 export const updateFacility = (id: string, changes: Record<string, unknown>) =>
   request<{ changed: string[]; facility: Facility }>(path("facilities", id), patch(changes));
+
+// ── Facility contacts (DON, DOR, IT / EHR, ...) ─────────────
+
+const contactsPath = (facilityId: string, contactId?: string) =>
+  `${path("facilities", facilityId)}/contacts${contactId ? `/${encodeURIComponent(contactId)}` : ""}`;
+
+export const createContact = (facilityId: string, input: ContactInput) =>
+  request<{ contact: FacilityContact }>(contactsPath(facilityId), post(input)).then((r) => r.contact);
+export const updateContact = (facilityId: string, contactId: string, changes: ContactInput) =>
+  request<{ changed: string[]; contact: FacilityContact }>(contactsPath(facilityId, contactId), patch(changes)).then((r) => r.contact);
+export const removeContact = (facilityId: string, contactId: string) => request<{ removed: true }>(contactsPath(facilityId, contactId), { method: "DELETE" });
 
 // ── Facility assignments (who covers which facility) ─────────────
 // Reads come with the employee and facility. The ORCA API checks the type: rounding provider and

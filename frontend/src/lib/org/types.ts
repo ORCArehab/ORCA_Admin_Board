@@ -199,8 +199,35 @@ export interface FacilityAccess {
   updatedBy: string;
 }
 
+/** Someone to call at a facility. The role is text: a standard one (contactRoles) or the sheet's own wording. */
+export interface FacilityContact {
+  id: string;
+  role: string;
+  name: string | null;
+  title: string | null;
+  phone: string | null;
+  extension?: string | null;
+  email: string | null;
+  notes?: string | null;
+  updatedAt?: string;
+  updatedBy?: string | null;
+}
+
+/** What a contact form may send; the proxy routes pass only these through. */
+export const CONTACT_FIELDS = ["role", "name", "title", "phone", "extension", "email", "notes"];
+
+export type ContactInput = Partial<Record<"role" | "name" | "title" | "phone" | "extension" | "email" | "notes", string | null>>;
+
+/** Shown when the API doesn't send its list (older API). */
+export const DEFAULT_CONTACT_ROLES = ["Administrator", "DON", "ADON", "DOR", "IT / EHR", "Medical Records", "Admissions", "Business Office", "Social Services", "Unit Manager", "Medical Director"];
+/** The contacts every facility should have; missing ones are suggested. */
+export const KEY_CONTACT_ROLES = ["Administrator", "DON", "DOR", "IT / EHR"];
+
 export interface FacilityDetail {
   facility: Facility;
+  /** HIM, HR and admins; absent for others. */
+  contacts?: FacilityContact[];
+  contactRoles?: string[];
   aliases: { id: string; alias: string; type: string }[];
   assignments: { id: string; staff: { id: string; displayName: string }; type: string; effectiveFrom: string | null }[];
   /** Present only for people who may see facility access (ADMIN, HIM). */
