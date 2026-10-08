@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapsUrl, missingKeyRoles, phoneDisplay, sortContacts } from "./contacts";
+import { countyLabel, mapsUrl, missingKeyRoles, phoneDisplay, sortContacts } from "./contacts";
 import type { FacilityContact } from "./types";
 
 const c = (role: string, name: string | null = null, extra: Partial<FacilityContact> = {}): FacilityContact => ({ id: role + name, role, name, title: null, phone: null, email: null, ...extra });
@@ -26,5 +26,12 @@ describe("facility contacts", () => {
     expect(phoneDisplay(c("DON", null, { phone: "555.010.0400" }))).toEqual({ text: "555.010.0400", href: "tel:5550100400" });
     expect(phoneDisplay(c("DON"))).toBeNull();
     expect(mapsUrl(["1 Main St", "Seaside, CA 90001"])).toBe("https://www.google.com/maps/search/?api=1&query=1%20Main%20St%2C%20Seaside%2C%20CA%2090001");
+  });
+});
+
+describe("county", () => {
+  it("never doubles the word County", () => {
+    expect(countyLabel("Orange County")).toBe("Orange County");
+    expect(countyLabel("Orange")).toBe("Orange County");
   });
 });

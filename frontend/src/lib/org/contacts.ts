@@ -27,3 +27,6 @@ export function phoneDisplay(c: Pick<FacilityContact, "phone" | "extension">): {
 
 /** Google Maps search for an address. */
 export const mapsUrl = (lines: string[]) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lines.join(", "))}`;
+
+/** "Orange County", whether the record says "Orange" or "Orange County". */
+export const countyLabel = (county: string) => (/\bcounty$/i.test(county.trim()) ? county.trim() : `${county.trim()} County`);
