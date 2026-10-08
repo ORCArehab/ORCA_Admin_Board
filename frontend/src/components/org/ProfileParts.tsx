@@ -136,6 +136,9 @@ const ACTION_LABELS: Record<string, string> = {
   facility_access_updated: "Hospital login changed",
   facility_access_revealed: "Hospital login password revealed",
   facility_access_deleted: "Hospital login deleted",
+  contact_added: "Contact added",
+  contact_updated: "Contact changed",
+  contact_removed: "Contact removed",
   documents_folder_linked: "Document folder set up",
   document_added: "Document added",
 };

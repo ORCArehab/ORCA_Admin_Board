@@ -95,3 +95,14 @@ The provider schedule lives in the ORCA API (`schedule_assignments`, `/v1/schedu
 
 - **Position and Access are separate.** Position is someone's job (the staff record's category). Access is the roles on their sign-in account, which decide what they can see in ORCA apps. Admins set Access, and can turn an account off, on the employee's profile. There's no separate People & Roles page any more: `/people` redirects to **Employees → Accounts without a record**. That admin-only view lists sign-in accounts that aren't linked to any employee. There an admin can create the employee record (prefilled; saving it links the account and keeps its roles), edit the account's roles, or turn the account off.
 - **Facility assignments** show on both sides: an employee's facilities on their profile, and a facility's assigned staff on its page. Anyone allowed to write a type gets **+ Assign** and **End** for it, matching the ORCA API: rounding provider and liaison are HIM or Admin; scribe coverage, credentialed and other are HR or Admin (`assignmentTypesFor` in `lib/access.ts`). Ending an assignment keeps it as history. Assignments imported from a master spreadsheet can't be ended here; the API says so.
+
+## Facility pages
+
+Tabs, kept in the URL (`?tab=`) so they can be linked:
+- **Overview:** location (with a Google Maps link), phone, fax, email, other details and activity.
+- **Contacts:** Administrator, DON, DOR, IT / EHR and others, with direct phone and extension,
+  email and notes. HIM and admins add, edit and remove them. Key roles nobody is recorded for are
+  offered as one-click starting points.
+- **Providers:** assigned staff, with Assign and End.
+- **Scheduling** (admins): who's on the schedule there, week by week, read-only.
+- **Hospital logins** (ADMIN, HIM).
