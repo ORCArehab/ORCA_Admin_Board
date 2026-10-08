@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useRoles } from "@/components/RolesProvider";
 import { canManageFacilityAccess, canSee } from "@/lib/access";
-import { mapsUrl } from "@/lib/org/contacts";
+import { countyLabel, mapsUrl } from "@/lib/org/contacts";
 import { addressLines, facilityAdditional, facilityStatus, facilityType } from "@/lib/org/profile";
 import { DEFAULT_CONTACT_ROLES, facilityLogins, type FacilityAccess, type FacilityContact, type FacilityDetail } from "@/lib/org/types";
 import { AssignmentsSection } from "./AssignmentsSection";
@@ -147,7 +147,7 @@ function Overview({ detail }: { detail: FacilityDetail }) {
                       {line}
                     </span>
                   ))}
-                  {f.county && <span className="muted">{f.county} County</span>}
+                  {f.county && <span className="muted">{countyLabel(f.county)}</span>}
                 </address>
                 <a className="text-link info-link" href={mapsUrl(address)} target="_blank" rel="noopener noreferrer">
                   View on Google Maps <ExternalIcon />
