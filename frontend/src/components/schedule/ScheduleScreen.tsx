@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
+import { PublishStatus } from "./PublishStatus";
 import { QuickBooksDialog } from "./QuickBooksDialog";
 import { copyWeek, createAssignment, deleteAssignment, ScheduleError, updateAssignment, type SaveResult } from "@/lib/schedule/api";
 import { isProvider, type BoardFilters } from "@/lib/schedule/board";
@@ -62,6 +63,8 @@ export function ScheduleScreen({
   const [notice, setNotice] = useState<string | null>(initialNotice);
   const [copying, setCopying] = useState(false);
   const [sendingToQuickBooks, setSendingToQuickBooks] = useState(false);
+  /** Bumped when the send dialog closes, so the "what providers see" line re-checks. */
+  const [publishRevision, setPublishRevision] = useState(0);
   const board = useScheduleBoard(weekStart);
   const thisWeek = weekStartOf(today);
 
@@ -325,6 +328,7 @@ export function ScheduleScreen({
               void dropped(entry, target, copy);
             }}
           />
+          <PublishStatus weekStart={weekStart} entries={data.assignments.length} revision={`${publishRevision}:${JSON.stringify(data.assignments)}`} />
           <div className="schedule-foot">
             <span className="section-note">
               {data.assignments.length} {data.assignments.length === 1 ? "entry" : "entries"} this week. Names and facilities come from the organization records.
@@ -379,7 +383,13 @@ export function ScheduleScreen({
           }}
         />
       )}
-      {sendingToQuickBooks && <QuickBooksDialog weekStart={weekStart} onClose={() => setSendingToQuickBooks(false)} />}
+      {sendingToQuickBooks && <QuickBooksDialog
+          weekStart={weekStart}
+          onClose={() => {
+            setSendingToQuickBooks(false);
+            setPublishRevision((n) => n + 1);
+          }}
+        />}
     </div>
   );
 }
