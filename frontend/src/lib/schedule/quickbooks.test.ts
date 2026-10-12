@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewLines, previewNotes, resultLine } from "./quickbooks";
+import { connectOutcome, needsConnection, previewLines, previewNotes, resultLine } from "./quickbooks";
 
 const summary = (o: Partial<Record<"create" | "update" | "remove" | "unchanged" | "notSent" | "blocked", number>> = {}) => ({ create: 0, update: 0, remove: 0, unchanged: 0, notSent: 0, blocked: 0, ...o });
 
@@ -26,5 +26,12 @@ describe("send to QuickBooks Time", () => {
     const base = { weekStart: "2026-10-12", unchanged: 0, blocked: 0, notSent: 0, failures: [] };
     expect(resultLine({ ...base, created: 4, updated: 1, removed: 0 })).toBe("Sent to QuickBooks Time: 4 added, 1 updated.");
     expect(resultLine({ ...base, created: 0, updated: 0, removed: 0 })).toBe("QuickBooks Time already matched this week. Nothing was changed.");
+  });
+
+  it("knows when to offer Connect, and reports how connecting went", () => {
+    expect([needsConnection("NOT_CONNECTED"), needsConnection("RECONNECT"), needsConnection("RATE_LIMITED")]).toEqual([true, true, false]);
+    expect(connectOutcome("connected")).toMatch(/is connected/);
+    expect(connectOutcome("declined")).toMatch(/wasn't approved/);
+    expect(connectOutcome(null)).toBeNull();
   });
 });

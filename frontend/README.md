@@ -99,7 +99,10 @@ The provider schedule lives in the ORCA API (`schedule_assignments`, `/v1/schedu
 ## Send to QuickBooks Time
 
 The schedule board's **Send to QuickBooks Time** button (admins) opens a dialog for the week on
-screen. It first shows a preview from the ORCA API: how many events will be added, updated and
+screen. The first time (or if QuickBooks Time ever stops accepting the connection) it offers
+**Connect QuickBooks Time**: the admin approves access on QuickBooks Time's own page and is sent
+back to `/api/quickbooks-time/callback`, which hands the code to the ORCA API. After that the
+ORCA API keeps the connection renewed by itself; this app never holds a token. It first shows a preview from the ORCA API: how many events will be added, updated and
 removed, what isn't sent (PTO, Off, Admin, Clinic), and any provider or facility that still needs
 matching to a QuickBooks Time user or jobcode, which is picked right there and remembered.
 **Send as drafts** then makes QuickBooks Time match the week. New events arrive as drafts, so

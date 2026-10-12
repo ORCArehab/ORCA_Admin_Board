@@ -38,6 +38,21 @@ async function request<T>(path: string, method: string, body: unknown): Promise<
   return (await res.json()) as T;
 }
 
+/** The address of QuickBooks Time's approval page; the browser goes there to connect. */
+export const startQuickBooksConnect = () => request<{ url: string }>("/api/quickbooks-time/connect", "POST", {}).then((r) => r.url);
+export const disconnectQuickBooks = () => request<{ connected: boolean }>("/api/quickbooks-time/disconnect", "POST", {});
+
+/** Error codes that mean "connect (again) first". */
+export const needsConnection = (code: string) => code === "NOT_CONNECTED" || code === "RECONNECT";
+
+/** What to tell the admin after QuickBooks Time sends them back (?quickbooks=...). */
+export function connectOutcome(value: string | null): string | null {
+  if (value === "connected") return "QuickBooks Time is connected. Press Send to QuickBooks Time to send this week.";
+  if (value === "declined") return "QuickBooks Time wasn't connected: access wasn't approved.";
+  if (value === "failed") return "QuickBooks Time couldn't be connected. Try connecting again.";
+  return null;
+}
+
 export const previewQuickBooks = (weekStart: string) => request<QuickBooksPreview>("/api/quickbooks-time/preview", "POST", { weekStart });
 export const sendToQuickBooks = (weekStart: string) => request<QuickBooksSendResult>("/api/quickbooks-time/send", "POST", { weekStart });
 export const linkQuickBooks = (kind: "staff" | "facilities", recordId: string, id: number) =>

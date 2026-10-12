@@ -4,20 +4,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import {
+  disconnectQuickBooks,
   linkQuickBooks,
+  needsConnection,
   previewLines,
   previewNotes,
   previewQuickBooks,
   resultLine,
   sendToQuickBooks,
+  startQuickBooksConnect,
   type QuickBooksPreview,
   type QuickBooksSendResult,
 } from "@/lib/schedule/quickbooks";
 import { weekLabel } from "@/lib/schedule/week";
 
+/** An API failure as dialog state: "connect first" codes get the Connect panel. */
+const failed = (error: unknown, fallback: string): State =>
+  error instanceof ApiError && needsConnection(error.code) ? { status: "connect", message: error.message } : { status: "error", message: error instanceof ApiError ? error.message : fallback };
+
 type State =
   | { status: "loading" }
   | { status: "error"; message: string }
+  /** Not connected yet, or QuickBooks Time stopped accepting the connection. */
+  | { status: "connect"; message: string; busy?: boolean }
   | { status: "ready"; preview: QuickBooksPreview }
   | { status: "sending"; preview: QuickBooksPreview }
   | { status: "sent"; result: QuickBooksSendResult };
@@ -37,7 +46,7 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
     () =>
       previewQuickBooks(weekStart).then(
         (preview) => setState({ status: "ready", preview }),
-        (error) => setState({ status: "error", message: error instanceof ApiError ? error.message : "The preview couldn't be loaded." }),
+        (error) => setState(failed(error, "The preview couldn't be loaded.")),
       ),
     [weekStart],
   );
@@ -57,7 +66,27 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
     try {
       setState({ status: "sent", result: await sendToQuickBooks(weekStart) });
     } catch (error) {
-      setState({ status: "error", message: error instanceof ApiError ? error.message : "The schedule couldn't be sent." });
+      setState(failed(error, "The schedule couldn't be sent."));
+    }
+  }
+
+  async function connect() {
+    setState((s) => (s.status === "connect" ? { ...s, busy: true } : s));
+    try {
+      // Off to QuickBooks Time's own approval page; it sends the admin back to the schedule.
+      window.location.assign(await startQuickBooksConnect());
+    } catch (error) {
+      setState({ status: "error", message: error instanceof ApiError ? error.message : "Connecting couldn't be started." });
+    }
+  }
+
+  async function disconnectNow() {
+    if (!window.confirm("Disconnect QuickBooks Time? Events already sent stay there, but ORCA won't be able to send or update the schedule until someone connects again.")) return;
+    try {
+      await disconnectQuickBooks();
+      setState({ status: "connect", message: "QuickBooks Time is disconnected." });
+    } catch (error) {
+      setState({ status: "error", message: error instanceof ApiError ? error.message : "Couldn't disconnect." });
     }
   }
 
@@ -78,6 +107,25 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
         <p className="quickbooks-week">{weekLabel(weekStart)}</p>
 
         {state.status === "loading" && <p className="muted">Checking QuickBooks Time…</p>}
+
+        {state.status === "connect" && (
+          <>
+            <p>{state.message}</p>
+            <p className="quickbooks-notes-text">
+              You&apos;ll sign in to QuickBooks Time as an administrator and approve ORCA&apos;s access. That&apos;s needed once; ORCA keeps the connection renewed after that.
+            </p>
+            <div className="editor-actions">
+              <span className="editor-actions-main">
+                <button type="button" className="button" onClick={onClose} disabled={state.busy}>
+                  Cancel
+                </button>
+                <button type="button" className="button button-primary-sm" onClick={connect} disabled={state.busy}>
+                  {state.busy ? "Opening QuickBooks Time…" : "Connect QuickBooks Time"}
+                </button>
+              </span>
+            </div>
+          </>
+        )}
 
         {state.status === "error" && (
           <>
@@ -141,7 +189,10 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
 
             <p className="quickbooks-foot">
               Goes to the &ldquo;{preview.calendar.name}&rdquo; calendar. New events are drafts: nobody is notified until you publish them in QuickBooks Time.
-              {preview.lastSent && ` Last sent ${formatDate(preview.lastSent.at)} by ${preview.lastSent.by}.`}
+              {preview.lastSent && ` Last sent ${formatDate(preview.lastSent.at)} by ${preview.lastSent.by}.`}{" "}
+              <button type="button" className="link-button quickbooks-disconnect" onClick={disconnectNow} disabled={sending}>
+                Disconnect
+              </button>
             </p>
             <div className="editor-actions">
               <span className="editor-actions-main">

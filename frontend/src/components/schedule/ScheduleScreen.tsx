@@ -41,6 +41,7 @@ export function ScheduleScreen({
   initialView,
   initialStaffId = null,
   initialFacilityId = null,
+  initialNotice = null,
 }: {
   today: string;
   initialWeekStart: string;
@@ -48,6 +49,8 @@ export function ScheduleScreen({
   /** Preselected filters from a profile's "View schedule" link. */
   initialStaffId?: string | null;
   initialFacilityId?: string | null;
+  /** Shown once on arrival (how connecting QuickBooks Time went). */
+  initialNotice?: string | null;
 }) {
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [view, setView] = useState<BoardView>(initialView);
@@ -56,7 +59,7 @@ export function ScheduleScreen({
   const [quick, setQuick] = useState<Quick>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [dropIssue, setDropIssue] = useState<DropIssue>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(initialNotice);
   const [copying, setCopying] = useState(false);
   const [sendingToQuickBooks, setSendingToQuickBooks] = useState(false);
   const board = useScheduleBoard(weekStart);
@@ -68,6 +71,7 @@ export function ScheduleScreen({
     url.searchParams.set("week", weekStart);
     if (view === "facilities") url.searchParams.set("view", view);
     else url.searchParams.delete("view");
+    url.searchParams.delete("quickbooks"); // a one-time arrival message, not part of the address
     window.history.replaceState(window.history.state, "", url);
   }, [weekStart, view]);
 
