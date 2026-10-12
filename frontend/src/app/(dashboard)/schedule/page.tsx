@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ScheduleScreen } from "@/components/schedule/ScheduleScreen";
+import { connectOutcome } from "@/lib/schedule/quickbooks";
 import { isIsoDate, today, weekStart } from "@/lib/schedule/week";
 
 export const metadata: Metadata = { title: "Schedule · ORCA Admin" };
@@ -10,10 +11,11 @@ const recordId = (value: string | string[] | undefined) => (typeof value === "st
 /**
  * Operations → Schedule. ?week=YYYY-MM-DD (any day of the week) opens that week.
  * ?provider=<staff id> or ?facility=<facility id> opens with that filter selected (used by the
- * "View schedule" links on employee and facility profiles).
+ * "View schedule" links on employee and facility profiles). ?quickbooks=connected|declined|failed
+ * is where QuickBooks Time sends an admin back after they connect it.
  */
 export default async function SchedulePage({ searchParams }: PageProps<"/schedule">) {
-  const { week, view, provider, facility } = await searchParams;
+  const { week, view, provider, facility, quickbooks } = await searchParams;
   const facilityId = recordId(facility);
   const now = today();
   return (
@@ -23,6 +25,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
       initialView={view === "facilities" || (facilityId && view !== "providers") ? "facilities" : "providers"}
       initialStaffId={recordId(provider)}
       initialFacilityId={facilityId}
+      initialNotice={connectOutcome(typeof quickbooks === "string" ? quickbooks : null)}
     />
   );
 }

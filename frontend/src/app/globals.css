@@ -707,3 +707,23 @@ a.info-primary { color: var(--accent); }
 .facility-day-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .facility-day-entries li { display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .facility-day-who { font-weight: 500; }
+
+/* ── Send to QuickBooks Time ─────────────── */
+.schedule-header-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.quickbooks { width: min(560px, calc(100vw - 32px)); }
+.quickbooks-body { padding: 18px 20px 16px; display: grid; gap: 12px; font-size: 14px; }
+.quickbooks-body p { margin: 0; }
+.quickbooks-week { color: var(--text-muted); font-size: 13px; margin-top: -6px !important; }
+.quickbooks-lines { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-weight: 500; }
+.quickbooks-notes { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; color: var(--text-muted); }
+.quickbooks-match { border-top: 1px solid var(--border); padding-top: 12px; display: grid; gap: 6px; }
+.quickbooks-match h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--caution); }
+.quickbooks-match ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
+.quickbooks-match li { display: grid; gap: 4px; }
+.quickbooks-match-name { font-size: 13px; }
+.quickbooks-match-pick { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.quickbooks-match-pick select { min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.quickbooks-foot { font-size: 12px; color: var(--text-faint); border-top: 1px solid var(--border); padding-top: 10px; }
+.quickbooks-notes-text { font-size: 13px; color: var(--text-muted); }
+.quickbooks-disconnect { color: var(--text-faint); text-decoration: underline; font-size: 12px; }
+.quickbooks-disconnect:hover { color: var(--caution); }

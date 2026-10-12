@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
+import { QuickBooksDialog } from "./QuickBooksDialog";
 import { copyWeek, createAssignment, deleteAssignment, ScheduleError, updateAssignment, type SaveResult } from "@/lib/schedule/api";
 import { isProvider, type BoardFilters } from "@/lib/schedule/board";
 import { copyInput, planDrop, type DropTarget } from "@/lib/schedule/dragDrop";
@@ -40,6 +41,7 @@ export function ScheduleScreen({
   initialView,
   initialStaffId = null,
   initialFacilityId = null,
+  initialNotice = null,
 }: {
   today: string;
   initialWeekStart: string;
@@ -47,6 +49,8 @@ export function ScheduleScreen({
   /** Preselected filters from a profile's "View schedule" link. */
   initialStaffId?: string | null;
   initialFacilityId?: string | null;
+  /** Shown once on arrival (how connecting QuickBooks Time went). */
+  initialNotice?: string | null;
 }) {
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [view, setView] = useState<BoardView>(initialView);
@@ -55,8 +59,9 @@ export function ScheduleScreen({
   const [quick, setQuick] = useState<Quick>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [dropIssue, setDropIssue] = useState<DropIssue>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(initialNotice);
   const [copying, setCopying] = useState(false);
+  const [sendingToQuickBooks, setSendingToQuickBooks] = useState(false);
   const board = useScheduleBoard(weekStart);
   const thisWeek = weekStartOf(today);
 
@@ -66,6 +71,7 @@ export function ScheduleScreen({
     url.searchParams.set("week", weekStart);
     if (view === "facilities") url.searchParams.set("view", view);
     else url.searchParams.delete("view");
+    url.searchParams.delete("quickbooks"); // a one-time arrival message, not part of the address
     window.history.replaceState(window.history.state, "", url);
   }, [weekStart, view]);
 
@@ -185,9 +191,14 @@ export function ScheduleScreen({
         title="Schedule"
         description="Where each provider is scheduled, by week."
         aside={
-          <button type="button" className="button button-primary-sm" onClick={() => setEditing({ existing: null, prefill: { date: today >= weekStart && today <= addDays(weekStart, 6) ? today : weekStart } })} disabled={!data}>
-            + Add entry
-          </button>
+          <span className="schedule-header-actions">
+            <button type="button" className="button" onClick={() => setSendingToQuickBooks(true)} disabled={!data}>
+              Send to QuickBooks Time
+            </button>
+            <button type="button" className="button button-primary-sm" onClick={() => setEditing({ existing: null, prefill: { date: today >= weekStart && today <= addDays(weekStart, 6) ? today : weekStart } })} disabled={!data}>
+              + Add entry
+            </button>
+          </span>
         }
       />
 
@@ -368,6 +379,7 @@ export function ScheduleScreen({
           }}
         />
       )}
+      {sendingToQuickBooks && <QuickBooksDialog weekStart={weekStart} onClose={() => setSendingToQuickBooks(false)} />}
     </div>
   );
 }
