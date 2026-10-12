@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
+import { QuickBooksDialog } from "./QuickBooksDialog";
 import { copyWeek, createAssignment, deleteAssignment, ScheduleError, updateAssignment, type SaveResult } from "@/lib/schedule/api";
 import { isProvider, type BoardFilters } from "@/lib/schedule/board";
 import { copyInput, planDrop, type DropTarget } from "@/lib/schedule/dragDrop";
@@ -57,6 +58,7 @@ export function ScheduleScreen({
   const [dropIssue, setDropIssue] = useState<DropIssue>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
+  const [sendingToQuickBooks, setSendingToQuickBooks] = useState(false);
   const board = useScheduleBoard(weekStart);
   const thisWeek = weekStartOf(today);
 
@@ -185,9 +187,14 @@ export function ScheduleScreen({
         title="Schedule"
         description="Where each provider is scheduled, by week."
         aside={
-          <button type="button" className="button button-primary-sm" onClick={() => setEditing({ existing: null, prefill: { date: today >= weekStart && today <= addDays(weekStart, 6) ? today : weekStart } })} disabled={!data}>
-            + Add entry
-          </button>
+          <span className="schedule-header-actions">
+            <button type="button" className="button" onClick={() => setSendingToQuickBooks(true)} disabled={!data}>
+              Send to QuickBooks Time
+            </button>
+            <button type="button" className="button button-primary-sm" onClick={() => setEditing({ existing: null, prefill: { date: today >= weekStart && today <= addDays(weekStart, 6) ? today : weekStart } })} disabled={!data}>
+              + Add entry
+            </button>
+          </span>
         }
       />
 
@@ -368,6 +375,7 @@ export function ScheduleScreen({
           }}
         />
       )}
+      {sendingToQuickBooks && <QuickBooksDialog weekStart={weekStart} onClose={() => setSendingToQuickBooks(false)} />}
     </div>
   );
 }
