@@ -7,7 +7,7 @@ import { refreshWithApi, signInWithApi, type SignInOutcome } from "@/lib/session
 const allowedDomain = process.env.ALLOWED_GOOGLE_DOMAIN?.trim().toLowerCase() || null;
 
 /** How often a session re-checks the person's roles with the API (which itself checks on every request). */
-const ROLE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+const ROLE_REFRESH_INTERVAL_MS = 60 * 1000;
 
 const SIGN_IN_ERRORS: Record<Extract<SignInOutcome, { ok: false }>["reason"], string> = {
   "not-admin": "NotAdmin",

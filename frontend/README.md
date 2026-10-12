@@ -26,7 +26,7 @@ npm run build
 
 - **Sign-in:** Google (Auth.js), using the employee portal's OAuth client, limited to the ORCA Workspace domain.
   The Google ID token is exchanged at `POST /v1/identity/sessions` on the ORCA API with this app's key; only people
-  with the **ADMIN** role get in. Roles are re-checked every 10 minutes, and the session ends if ADMIN is removed.
+  with the **ADMIN**, **HR** or **HIM** role get in. Roles are re-checked every minute, and the session ends if the person loses all three.
 - **Data:** the browser calls this app's own `/api/dashboard/{providers,scribes}` and `/api/schedule/*`. Those routes run on the server and
   call the ORCA API with this app's key (`ORCA_API_KEY`, which is `ADMIN_API_KEY` in the API) plus the admin's user
   token. The API checks `dashboard.read` (ADMIN) on every request. No key or token ever reaches the browser.
