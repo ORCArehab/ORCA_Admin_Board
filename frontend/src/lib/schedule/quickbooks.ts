@@ -11,6 +11,8 @@ export interface QuickBooksPreview {
   users: { id: number; name: string; email: string | null }[];
   jobcodes: { id: number; name: string }[];
   lastSent: { at: string; by: string; created: number; updated: number; removed: number; failed: number } | null;
+  /** The employee portal: whether providers can see this week yet, and how many board changes a send would show them. */
+  portal?: { published: boolean; changes: number };
 }
 
 export interface QuickBooksSendResult {
@@ -22,6 +24,8 @@ export interface QuickBooksSendResult {
   blocked: number;
   notSent: number;
   failures: { action: "create" | "update" | "remove"; date: string | null; message: string }[];
+  /** How many entries providers now see for the week in the portal. */
+  publishedToPortal?: number;
 }
 
 async function request<T>(path: string, method: string, body: unknown): Promise<T> {
@@ -58,6 +62,37 @@ export const sendToQuickBooks = (weekStart: string) => request<QuickBooksSendRes
 export const linkQuickBooks = (kind: "staff" | "facilities", recordId: string, id: number) =>
   request<{ linked: boolean }>(`/api/quickbooks-time/links/${kind}/${encodeURIComponent(recordId)}`, "PUT", { id });
 
+/** What providers see for a week in the employee portal, compared with the board. */
+export interface PublicationStatus {
+  weekStart: string;
+  publishedAt: string | null;
+  publishedBy: string | null;
+  unsentChanges: number;
+}
+
+export async function fetchPublication(weekStart: string): Promise<PublicationStatus | null> {
+  try {
+    const res = await fetch(`/api/schedule/publication?weekStart=${weekStart}`, { credentials: "same-origin", cache: "no-store", headers: { accept: "application/json" } });
+    return res.ok ? ((await res.json()) as PublicationStatus) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** One line for under the board: whether providers can see this week, and whether it's current. `when` is the formatted send time. */
+export function publicationLine(status: PublicationStatus, when: string | null, entries: number): { text: string; attention: boolean } {
+  if (!status.publishedAt) {
+    return entries === 0
+      ? { text: "Nothing on this week yet.", attention: false }
+      : { text: "Not sent yet: providers can't see this week in the portal until you send it to QuickBooks Time.", attention: true };
+  }
+  if (status.unsentChanges === 0) return { text: `Providers see this week as shown (sent ${when}).`, attention: false };
+  return {
+    text: `${status.unsentChanges} ${status.unsentChanges === 1 ? "change" : "changes"} since the last send (${when}) ${status.unsentChanges === 1 ? "isn't" : "aren't"} visible to providers yet. Send to QuickBooks Time to publish.`,
+    attention: true,
+  };
+}
+
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** What pressing Send will do, as short lines for the dialog. Empty when there's nothing to send. */
@@ -67,6 +102,14 @@ export function previewLines(s: QuickBooksPreview["summary"]): string[] {
     s.update > 0 && `${plural(s.update, "event")} will be updated`,
     s.remove > 0 && `${plural(s.remove, "event")} will be removed (${s.remove === 1 ? "its entry is" : "their entries are"} no longer on the schedule)`,
   ].filter((line): line is string => !!line);
+}
+
+/** What a send changes for providers in the portal, or null when they already see the week as it is. */
+export function portalLine(portal: QuickBooksPreview["portal"]): string | null {
+  if (!portal || portal.changes === 0) return null;
+  return portal.published
+    ? `Providers will see ${plural(portal.changes, "schedule change")} in the portal`
+    : "Providers will see this week in the portal for the first time";
 }
 
 /** What stays as it is, and why. */
@@ -80,5 +123,6 @@ export function previewNotes(s: QuickBooksPreview["summary"]): string[] {
 
 export function resultLine(r: QuickBooksSendResult): string {
   const parts = [r.created > 0 && `${r.created} added`, r.updated > 0 && `${r.updated} updated`, r.removed > 0 && `${r.removed} removed`].filter(Boolean);
-  return parts.length ? `Sent to QuickBooks Time: ${parts.join(", ")}.` : "QuickBooks Time already matched this week. Nothing was changed.";
+  const qbt = parts.length ? `Sent to QuickBooks Time: ${parts.join(", ")}.` : "QuickBooks Time already matched this week.";
+  return r.publishedToPortal === undefined ? qbt : `${qbt} Providers now see this week in the portal as it is on the board.`;
 }

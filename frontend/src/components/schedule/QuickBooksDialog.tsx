@@ -7,6 +7,7 @@ import {
   disconnectQuickBooks,
   linkQuickBooks,
   needsConnection,
+  portalLine,
   previewLines,
   previewNotes,
   previewQuickBooks,
@@ -92,7 +93,8 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
 
   const preview = state.status === "ready" || state.status === "sending" ? state.preview : null;
   const sending = state.status === "sending";
-  const lines = preview ? previewLines(preview.summary) : [];
+  const portal = preview ? portalLine(preview.portal) : null;
+  const lines = preview ? [...previewLines(preview.summary), ...(portal ? [portal] : [])] : [];
   const notes = preview ? previewNotes(preview.summary) : [];
 
   return (
@@ -154,7 +156,7 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
                 ))}
               </ul>
             ) : (
-              <p>{preview.summary.blocked > 0 ? "Nothing can be sent until the matches below are chosen." : "QuickBooks Time already matches this week. There's nothing to send."}</p>
+              <p>{preview.summary.blocked > 0 ? "Nothing can be sent until the matches below are chosen." : "QuickBooks Time and the portal already match this week. There's nothing to send."}</p>
             )}
             {notes.length > 0 && (
               <ul className="quickbooks-notes">
@@ -188,7 +190,7 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
             )}
 
             <p className="quickbooks-foot">
-              Goes to the &ldquo;{preview.calendar.name}&rdquo; calendar. New events are drafts: nobody is notified until you publish them in QuickBooks Time.
+              Goes to the &ldquo;{preview.calendar.name}&rdquo; calendar. New events are drafts: nobody is notified until you publish them in QuickBooks Time. Sending also updates what providers see for this week in the employee portal.
               {preview.lastSent && ` Last sent ${formatDate(preview.lastSent.at)} by ${preview.lastSent.by}.`}{" "}
               <button type="button" className="link-button quickbooks-disconnect" onClick={disconnectNow} disabled={sending}>
                 Disconnect

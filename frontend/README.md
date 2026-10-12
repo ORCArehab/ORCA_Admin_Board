@@ -111,6 +111,15 @@ are listed, and tried again on the next send. The rules live in the ORCA API (OR
 `src/quickbooksTime`); this app only shows them (`components/schedule/QuickBooksDialog.tsx`,
 `lib/schedule/quickbooks.ts`, `/api/quickbooks-time/*`).
 
+## What providers see (publishing)
+
+The board is a working copy. Providers see a week in the employee portal only once it has been
+sent with **Send to QuickBooks Time**, and they keep seeing that version until the next send.
+Under the board, a line says where the week stands: "Not sent yet", "Providers see this week as
+shown (sent …)", or "3 changes since the last send aren't visible to providers yet". The send
+dialog counts those portal changes too, so a change QuickBooks Time doesn't get (a PTO day, say)
+can still be published. (`components/schedule/PublishStatus.tsx`, `/api/schedule/publication`.)
+
 ## Facility pages
 
 Tabs, kept in the URL (`?tab=`) so they can be linked:
