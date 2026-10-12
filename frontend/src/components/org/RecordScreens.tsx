@@ -23,6 +23,7 @@ import { useOrgResource } from "@/lib/org/useOrgResource";
 import { AssignmentsSection } from "./AssignmentsSection";
 import { EmployeeAccess } from "./EmployeeAccess";
 import { EmployeeCredentialing } from "./EmployeeCredentialing";
+import { DeleteFacility } from "./DeleteFacility";
 import { EmployeeDocuments } from "./EmployeeDocuments";
 import { FacilityProfile } from "./FacilityProfile";
 import { Avatar, DetailList, History, LinkRows, ProfileHeader, ProfileSection, SourceNote } from "./ProfileParts";
@@ -320,6 +321,7 @@ export function FacilityScreen({ id, created, tab }: { id: string; created: bool
             switchTo("view");
           }}
         />
+        <DeleteFacility id={facility.id} name={facility.name} />
       </>
     );
   }

@@ -121,3 +121,7 @@ Tabs, kept in the URL (`?tab=`) so they can be linked:
 - **Providers:** assigned staff, with Assign and End.
 - **Scheduling** (admins): who's on the schedule there, week by week, read-only.
 - **Hospital logins** (ADMIN, HIM).
+- **Deleting a facility** (admins only): the Edit facility screen has **Delete facility** at the
+  bottom, for duplicates and mistakes. It's permanent, and the ORCA API refuses it when the
+  facility has provider assignments, schedule entries or hospital logins. The page then says
+  what's attached and points to Archive, which hides a facility and keeps its history.

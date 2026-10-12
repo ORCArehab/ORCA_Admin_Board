@@ -126,6 +126,7 @@ export function SourceNote({ source }: { source: string }) {
 const ACTION_LABELS: Record<string, string> = {
   created: "Created",
   updated: "Changed",
+  deleted: "Deleted",
   alias_added: "Name added",
   alias_removed: "Name removed",
   person_linked: "Sign-in account linked",

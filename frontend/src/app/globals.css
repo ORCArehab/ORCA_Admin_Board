@@ -727,3 +727,8 @@ a.info-primary { color: var(--accent); }
 .quickbooks-notes-text { font-size: 13px; color: var(--text-muted); }
 .quickbooks-disconnect { color: var(--text-faint); text-decoration: underline; font-size: 12px; }
 .quickbooks-disconnect:hover { color: var(--caution); }
+
+/* ── Delete facility (admins) ─────────────── */
+.danger-zone { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--border); display: grid; gap: 10px; justify-items: start; max-width: 640px; }
+.danger-zone h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.danger-zone p { margin: 0; font-size: 13px; color: var(--text-muted); }

@@ -59,6 +59,9 @@ export const createFacility = (input: Record<string, unknown>) => request<{ faci
 export const updateFacility = (id: string, changes: Record<string, unknown>) =>
   request<{ changed: string[]; facility: Facility }>(path("facilities", id), patch(changes));
 
+/** Permanently deletes an unused facility (admins). Refused, with the reason, when it has history. */
+export const deleteFacility = (id: string) => request<{ deleted: true }>(path("facilities", id), { method: "DELETE" });
+
 // ── Facility contacts (DON, DOR, IT / EHR, ...) ─────────────
 
 const contactsPath = (facilityId: string, contactId?: string) =>
