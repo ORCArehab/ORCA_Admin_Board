@@ -163,6 +163,13 @@ scheduled yet. The answer links to the review page, `/ai/imports/[id]`:
   Excluded, Added), each with its sheet and cell, the original text, why it has that status,
   what's already scheduled that day, and controls to change the provider or facility, accept an
   unclear cell as read, or exclude it;
+- assignments **grouped by cell**: the cell's text heads the assignments read from it
+  ("KW & BV (AM). SMMC (PM)" → three), with notes (patient scope, recurring instructions,
+  companions) beside each;
+- **conflicts compared side by side**: this assignment against the other one, labelled "Same
+  cell", "In this file · S!F2" or "Already on the schedule", with **Go to** for rows in the file
+  and, for places sharing a block in one cell, **Split the AM between both** (consecutive times,
+  each still editable). Changing a match or a time rechecks the provider's day;
 - **Apply approved changes**: adds Ready rows (and rows with warnings only if that box is
   ticked), each re-checked as it's added. Rows still needing review stay in the draft for later.
   Providers see the new entries once the week is sent to QuickBooks Time.

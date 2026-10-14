@@ -18,7 +18,11 @@ import {
   updateImportRow,
   type ImportDraft,
   type ImportRow,
+  groupByCell,
+  splitBlock,
+  type RowIssue,
   type RowStatus,
+  type RowTime,
   type Unmatched,
 } from "@/lib/ai/imports";
 import { formatDate } from "@/lib/format";
@@ -66,6 +70,8 @@ export function ImportReview({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("attention");
   const [open, setOpen] = useState<string | null>(null);
+  // A row reached from another row's conflict: scrolled to and highlighted.
+  const [target, setTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -87,6 +93,14 @@ export function ImportReview({ id }: { id: string }) {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!target) return;
+    const el = document.getElementById(`row-${target}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = window.setTimeout(() => setTarget(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [target, filter]);
+
   const rows = useMemo(() => {
     if (!draft) return [];
     return draft.rows.filter((r) => {
@@ -103,6 +117,8 @@ export function ImportReview({ id }: { id: string }) {
   const editable = summary.status === "draft";
   const counts = (key: Filter) => (key === "all" ? draft.rows.length : key === "attention" ? draft.rows.filter((r) => ATTENTION.has(effectiveStatus(r))).length : draft.rows.filter((r) => effectiveStatus(r) === key).length);
   const toApply = applicable(draft.rows);
+  const cells = new Map(groupByCell(draft.rows).map((g) => [g.key, g.rows]));
+  const oneSheet = summary.sheets.filter((x) => x.layout).length <= 1;
   const unmatchedCount = summary.unmatchedProviders.length + summary.unmatchedFacilities.length;
   const suggestions = [...summary.unmatchedProviders, ...summary.unmatchedFacilities].filter((u) => u.suggestion).length;
 
@@ -114,6 +130,35 @@ export function ImportReview({ id }: { id: string }) {
       if (message) setNotice({ tone: "ok", text: message });
     } catch (e) {
       setNotice({ tone: "warn", text: e instanceof Error ? e.message : "That change couldn't be saved." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Opens another row in this file (the other side of a conflict) and scrolls to it. */
+  function goTo(rowId: string) {
+    const other = draft?.rows.find((x) => x.id === rowId);
+    if (!other) return;
+    const st = effectiveStatus(other);
+    if (!(filter === "all" || (filter === "attention" ? ATTENTION.has(st) : st === filter))) setFilter("all");
+    setOpen(rowId);
+    setTarget(rowId);
+  }
+
+  /** "KW & BV (AM)": gives the places in one cell consecutive times within their shared block. */
+  async function split(rowsInCell: ImportRow[]) {
+    const block = rowsInCell[0]?.timeBlock ?? "";
+    const times = splitBlock(block, rowsInCell.length);
+    if (!times) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      let next = draft;
+      for (const [i, row] of rowsInCell.entries()) next = await updateImportRow(id, row.id, { time: { block: "custom", ...times[i]! } });
+      setDraft(next);
+      setNotice({ tone: "ok", text: `Split the ${block === "all_day" ? "day" : block.toUpperCase()} between them: ${rowsInCell.map((row, i) => `${row.facility.name ?? row.facilityLabel} ${times[i]!.start}–${times[i]!.end}`).join(", ")}. Change any of them in the row.` });
+    } catch (e) {
+      setNotice({ tone: "warn", text: e instanceof Error ? e.message : "The times couldn't be saved." });
     } finally {
       setBusy(false);
     }
@@ -256,10 +301,45 @@ export function ImportReview({ id }: { id: string }) {
       {rows.length === 0 ? (
         <p className="profile-empty">{filter === "attention" ? "Nothing needs your attention." : "No rows here."}</p>
       ) : (
-        <ul className="review-rows">
-          {rows.map((r) => (
-            <RowItem key={r.id} row={r} picture={summary.source === "image"} oneSheet={summary.sheets.filter((x) => x.layout).length <= 1} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} loaders={loaders} onChange={change} />
-          ))}
+        <ul className="review-cells">
+          {groupByCell(rows).map((g) => {
+            const all = cells.get(g.key) ?? g.rows;
+            return (
+              <li key={g.key} className="review-cell">
+                <div className="review-cell-head">
+                  <span className="review-where" title={g.key}>
+                    {oneSheet ? g.cellRef : g.key}
+                  </span>
+                  <span className="review-date">{g.date ? formatDate(g.date) : "—"}</span>
+                  <code className="review-cell-source" title={summary.source === "image" ? "As read from the picture" : "As written in the workbook"}>
+                    {g.sourceText}
+                  </code>
+                  <span className="review-cell-count">
+                    {all.length > 1 ? `${all.length} assignments from this cell${g.rows.length < all.length ? ` · ${g.rows.length} shown` : ""}` : ""}
+                  </span>
+                </div>
+                <ul className="review-rows">
+                  {g.rows.map((r) => (
+                    <RowItem
+                      key={r.id}
+                      row={r}
+                      cellRows={all}
+                      picture={summary.source === "image"}
+                      open={open === r.id}
+                      target={target === r.id}
+                      onToggle={() => setOpen(open === r.id ? null : r.id)}
+                      editable={editable}
+                      busy={busy}
+                      loaders={loaders}
+                      onChange={change}
+                      onGoTo={goTo}
+                      onSplit={split}
+                    />
+                  ))}
+                </ul>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -344,25 +424,32 @@ function LabelMatcher({ kind, item, load, disabled, onPick }: { kind: "provider"
 
 function RowItem({
   row: r,
+  cellRows,
   picture,
-  oneSheet,
   open,
+  target,
   onToggle,
   editable,
   busy,
   loaders,
   onChange,
+  onGoTo,
+  onSplit,
 }: {
   row: ImportRow;
+  /** Every assignment read from the same cell, this one included. */
+  cellRows: ImportRow[];
   picture: boolean;
-  /** With one sheet read, the cell alone says where a row came from. */
-  oneSheet: boolean;
   open: boolean;
+  /** Reached from another row's conflict: highlighted for a moment. */
+  target: boolean;
   onToggle: () => void;
   editable: boolean;
   busy: boolean;
   loaders: Loaders;
   onChange: (row: ImportRow, change: Parameters<typeof updateImportRow>[2], message?: string) => void;
+  onGoTo: (rowId: string) => void;
+  onSplit: (rows: ImportRow[]) => void;
 }) {
   const status = effectiveStatus(r);
   const canEdit = editable && r.status !== "applied";
@@ -370,12 +457,8 @@ function RowItem({
   const where = r.type === "facility" || r.type === "coverage" ? (r.facility.name ?? r.facilityLabel ?? "—") : typeLabel(r.type);
   const unclear = r.issues.some((i) => i.kind === "source");
   return (
-    <li className={`review-row status-${status}`}>
+    <li id={`row-${r.id}`} className={`review-row status-${status}${target ? " is-target" : ""}`}>
       <button type="button" className="review-row-head" onClick={onToggle} aria-expanded={open}>
-        <span className="review-where" title={`${r.sheet}!${r.cellRef}`}>
-          {oneSheet ? r.cellRef : `${r.sheet}!${r.cellRef}`}
-        </span>
-        <span className="review-date">{r.date ? formatDate(r.date) : "—"}</span>
         <span className={`review-who match-${r.staff.match}`}>{who}</span>
         <span className={`review-what match-${r.type === "facility" || r.type === "coverage" ? r.facility.match : "matched"}`}>
           {r.type === "coverage" ? "Coverage · " : ""}
@@ -391,17 +474,31 @@ function RowItem({
             <dd>
               <code>{r.sourceText}</code>
             </dd>
-            {r.issues.length > 0 && (
+            {r.issues.some((i) => !i.other) && (
               <>
                 <dt>Why</dt>
                 <dd>
                   <ul className="review-issues">
-                    {r.issues.map((i, n) => (
-                      <li key={n} className={`issue-${i.kind}`}>
-                        {i.message}
-                      </li>
-                    ))}
+                    {r.issues
+                      .filter((i) => !i.other)
+                      .map((i, n) => (
+                        <li key={n} className={`issue-${i.kind}`}>
+                          {i.message}
+                        </li>
+                      ))}
                   </ul>
+                </dd>
+              </>
+            )}
+            {r.issues.some((i) => i.other) && (
+              <>
+                <dt>{r.issues.some((i) => i.other && i.kind === "conflict") ? "Conflict" : r.issues.some((i) => i.other && (i.kind === "warning" || i.kind === "duplicate")) ? "Compared with" : "Related"}</dt>
+                <dd className="review-conflicts">
+                  {r.issues
+                    .filter((i) => i.other)
+                    .map((i, n) => (
+                      <ConflictCard key={n} row={r} issue={i} cellRows={cellRows} editable={editable && r.status !== "applied"} busy={busy} onGoTo={onGoTo} onSplit={onSplit} />
+                    ))}
                 </dd>
               </>
             )}
@@ -445,6 +542,7 @@ function RowItem({
                   <SearchPicker ariaLabel="Facility" value={r.facility.id} valueLabel={r.facility.name} placeholder="Search facilities…" load={loaders.facilities} disabled={busy} onChange={(o) => onChange(r, { facilityId: o.id })} />
                 </label>
               )}
+              <TimeEditor row={r} disabled={busy} onSave={(time) => onChange(r, { time }, "Time updated.")} />
               {unclear && (
                 <button type="button" className="button" disabled={busy} onClick={() => onChange(r, { accepted: !r.accepted })}>
                   {r.accepted ? "Undo accept" : "Accept as read"}
@@ -458,5 +556,111 @@ function RowItem({
         </div>
       )}
     </li>
+  );
+}
+
+/** The row's time, editable: a block, or a start and end (e.g. the real end of a visit whose end was assumed). */
+function TimeEditor({ row, disabled, onSave }: { row: ImportRow; disabled: boolean; onSave: (time: RowTime) => void }) {
+  const [block, setBlock] = useState<RowTime["block"]>((row.timeBlock as RowTime["block"]) ?? "all_day");
+  const [start, setStart] = useState(row.startTime ?? "08:00");
+  const [end, setEnd] = useState(row.endTime ?? "17:00");
+  const assumed = row.issues.some((i) => i.kind === "assumed");
+  const changed = block !== row.timeBlock || (block === "custom" && (start !== row.startTime || end !== row.endTime));
+  const invalid = block === "custom" && (!start || !end || end <= start);
+  return (
+    <div className={`review-time${assumed ? " is-assumed" : ""}`}>
+      <span className="review-time-label">{assumed ? "Set the real end time" : "Time"}</span>
+      <select aria-label="Time block" value={block} onChange={(e) => setBlock(e.target.value as RowTime["block"])} disabled={disabled}>
+        <option value="am">AM (8–12)</option>
+        <option value="pm">PM (1–5)</option>
+        <option value="all_day">All day</option>
+        <option value="custom">Set times</option>
+      </select>
+      {block === "custom" && (
+        <>
+          <input type="time" aria-label="Start" value={start} onChange={(e) => setStart(e.target.value)} disabled={disabled} />
+          <span className="muted">to</span>
+          <input type="time" aria-label="End" value={end} onChange={(e) => setEnd(e.target.value)} disabled={disabled} />
+        </>
+      )}
+      <button type="button" className="button" disabled={disabled || invalid || (!changed && !assumed)} onClick={() => onSave(block === "custom" ? { block, start, end } : { block })}>
+        {assumed && !changed ? "Keep this time" : "Save time"}
+      </button>
+      {invalid && <span className="record-error">The end must be after the start.</span>}
+    </div>
+  );
+}
+
+const PLACE_TYPES = new Set(["facility", "coverage"]);
+
+/**
+ * One conflict, warning or related row, side by side: this assignment and the other one, where
+ * the other comes from (the same cell, elsewhere in this file, or the schedule), a link to it in
+ * this file, and for places sharing a block in one cell, an offer to split the block between them.
+ */
+function ConflictCard({
+  row: r,
+  issue,
+  cellRows,
+  editable,
+  busy,
+  onGoTo,
+  onSplit,
+}: {
+  row: ImportRow;
+  issue: RowIssue;
+  cellRows: ImportRow[];
+  editable: boolean;
+  busy: boolean;
+  onGoTo: (rowId: string) => void;
+  onSplit: (rows: ImportRow[]) => void;
+}) {
+  const o = issue.other!;
+  const mine = r.type === "facility" || r.type === "coverage" ? (r.facility.name ?? r.facilityLabel ?? "—") : typeLabel(r.type);
+  const theirs = o.type === "facility" ? (o.facility ?? "a facility") : o.type === "coverage" ? `Coverage · ${o.facility ?? "a facility"}` : typeLabel(o.type);
+  const origin = o.source === "schedule" ? "Already on the schedule" : o.sameCell ? `Same cell (${o.cellRef})` : `In this file · ${o.sheet}!${o.cellRef}`;
+  // Places in this cell sharing this row's block: offered consecutive times.
+  const sharing = cellRows.filter((x) => !x.excluded && x.status !== "applied" && PLACE_TYPES.has(x.type ?? "") && x.timeBlock === r.timeBlock);
+  const canSplit = editable && issue.code === "overlap" && o.sameCell && r.timeBlock !== "custom" && sharing.length > 1 && !!splitBlock(r.timeBlock ?? "", sharing.length);
+  const tone = issue.kind === "conflict" ? "conflict" : issue.kind === "related" ? "related" : "warning";
+  return (
+    <div className={`review-conflict tone-${tone}`}>
+      <p className="review-conflict-text">{issue.message}</p>
+      <div className="review-conflict-pair">
+        <div className="review-conflict-side">
+          <small>This assignment</small>
+          <strong>{mine}</strong>
+          <span>
+            {timeLabel(r)} · {r.date ? formatDate(r.date) : "—"}
+          </span>
+        </div>
+        <span className="review-conflict-vs" aria-hidden="true">
+          {issue.kind === "conflict" ? "✕" : "↔"}
+        </span>
+        <div className="review-conflict-side">
+          <small>{origin}</small>
+          <strong>{theirs}</strong>
+          <span>
+            {o.time} · {o.date ? formatDate(o.date) : "—"}
+            {o.provider ? ` · ${o.provider}` : ""}
+          </span>
+          {o.source === "workbook" && !o.sameCell && o.sourceText && <code>{o.sourceText}</code>}
+        </div>
+      </div>
+      {(o.rowId || canSplit) && (
+        <div className="review-conflict-actions">
+          {o.rowId && (
+            <button type="button" className="button" onClick={() => onGoTo(o.rowId!)}>
+              Go to {o.sameCell ? theirs : `${o.cellRef}`}
+            </button>
+          )}
+          {canSplit && (
+            <button type="button" className="button button-primary-sm" disabled={busy} onClick={() => onSplit(sharing)}>
+              Split the {r.timeBlock === "all_day" ? "day" : (r.timeBlock ?? "").toUpperCase()} between {sharing.length === 2 ? "both" : `all ${sharing.length}`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

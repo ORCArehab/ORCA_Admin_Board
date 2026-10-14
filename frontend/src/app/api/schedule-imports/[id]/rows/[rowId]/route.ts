@@ -3,9 +3,9 @@ import { errorResponse, jsonResponse, passThroughError, readJsonObject, signedOu
 import { orcaApiRequest } from "@/lib/orcaApi";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FIELDS = ["staffId", "facilityId", "excluded", "accepted", "sameLabel"];
+const FIELDS = ["staffId", "facilityId", "excluded", "accepted", "sameLabel", "time"];
 
-/** A reviewer's decision on a row: a match, exclude, or accept an unclear row as read. */
+/** A reviewer's decision on a row: a match, its time, exclude, or accept an unclear row as read. */
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/schedule-imports/[id]/rows/[rowId]">) {
   const { id, rowId } = await ctx.params;
   if (!UUID.test(id) || !UUID.test(rowId)) return errorResponse(404, "NOT_FOUND", "Not found.");
