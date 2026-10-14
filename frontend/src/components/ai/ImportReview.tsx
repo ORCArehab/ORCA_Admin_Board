@@ -380,6 +380,7 @@ function RowItem({
         <span className={`review-what match-${r.type === "facility" || r.type === "coverage" ? r.facility.match : "matched"}`}>
           {r.type === "coverage" ? "Coverage · " : ""}
           {where} <span className="muted">{timeLabel(r)}</span>
+          {r.notes && <span className="review-with"> · {r.notes}</span>}
         </span>
         <span className={`review-badge badge-${status}`}>{STATUS_LABELS[status]}</span>
       </button>
@@ -415,6 +416,7 @@ function RowItem({
                 <span>
                   {r.type === "coverage" ? "Coverage · " : ""}
                   {where} ({timeLabel(r)}){r.coveringLabel ? `, covering ${r.coveringLabel}` : ""}
+                  {r.notes && <small className="review-note">{r.notes}</small>}
                 </span>
               </span>
             </dd>

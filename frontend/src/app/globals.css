@@ -856,6 +856,8 @@ a.info-primary { color: var(--accent); }
 .review-detail dd { margin: 0; min-width: 0; }
 .review-detail code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 2px 6px; border-radius: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .review-issues { margin: 0; padding-left: 18px; }
+.review-with { color: var(--text-muted); font-size: 12px; }
+.review-note { display: block; color: var(--text-muted); text-transform: none; letter-spacing: 0; font-size: 12px; }
 .review-issues .issue-conflict { color: var(--caution); }
 .review-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .review-compare > span { display: grid; gap: 2px; align-content: start; }
