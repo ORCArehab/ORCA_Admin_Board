@@ -42,3 +42,22 @@ export async function orcaApiRequest<T>(
   if (!res.ok) throw new OrcaApiError(res.status, await res.json().catch(() => null));
   return (await res.json()) as T;
 }
+
+/**
+ * The ORCA API's raw response, for streams (ORCA AI's server-sent events) that must be passed
+ * through as they arrive. Errors are thrown like orcaApiRequest's.
+ */
+export async function orcaApiStream(path: string, init: RequestInit & { userToken?: string | null } = {}): Promise<Response> {
+  const baseUrl = process.env.ORCA_API_URL?.trim().replace(/\/+$/, "");
+  const key = process.env.ORCA_API_KEY?.trim();
+  if (!baseUrl || !key) throw new OrcaApiError(503);
+  const { userToken, ...rest } = init;
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...rest,
+    headers: { ...rest.headers, authorization: `Bearer ${key}`, ...(userToken ? { "x-orca-user-token": userToken } : {}) },
+    cache: "no-store",
+    signal: AbortSignal.timeout(180_000),
+  });
+  if (!res.ok) throw new OrcaApiError(res.status, await res.json().catch(() => null));
+  return res;
+}

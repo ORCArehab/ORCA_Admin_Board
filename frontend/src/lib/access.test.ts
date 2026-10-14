@@ -11,7 +11,7 @@ describe("who can use ORCA Admin and see what", () => {
   });
 
   it("gives HR Employees only; Admin everything", () => {
-    for (const section of ["overview", "providers", "scribes", "schedule", "facilities"] as const) {
+    for (const section of ["overview", "providers", "scribes", "schedule", "facilities", "ai"] as const) {
       expect(canSee(["HR"], section)).toBe(false);
       expect(canSee(["ADMIN"], section)).toBe(true);
     }
@@ -20,7 +20,7 @@ describe("who can use ORCA Admin and see what", () => {
   });
 
   it("gives HIM Facilities only, including facility access", () => {
-    for (const section of ["overview", "providers", "scribes", "schedule", "employees"] as const) expect(canSee(["HIM"], section)).toBe(false);
+    for (const section of ["overview", "providers", "scribes", "schedule", "employees", "ai"] as const) expect(canSee(["HIM"], section)).toBe(false);
     expect(canSee(["HIM"], "facilities")).toBe(true);
     expect(canManageFacilityAccess(["HIM"])).toBe(true);
     expect(canManageFacilityAccess(["ADMIN"])).toBe(true);
@@ -44,6 +44,7 @@ describe("who can use ORCA Admin and see what", () => {
     expect(sectionForPath("/")).toBe("overview");
     expect(sectionForPath("/employees/123")).toBe("employees");
     expect(sectionForPath("/schedule")).toBe("schedule");
+    expect(sectionForPath("/ai/imports/123")).toBe("ai");
     expect(sectionForPath("/people")).toBeNull(); // now part of Employees; the page redirects
     expect(sectionForPath("/something-else")).toBeNull();
     expect(homeFor(["ADMIN"])).toBe("/");

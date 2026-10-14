@@ -25,7 +25,7 @@ export const roleLabel = (key: string) => ROLE_OPTIONS.find((r) => r.key === key
 /** People with any of these roles may sign in to ORCA Admin. */
 export const APP_ROLES = ["ADMIN", "HR", "HIM"];
 
-export type Section = "overview" | "providers" | "scribes" | "schedule" | "employees" | "facilities";
+export type Section = "overview" | "providers" | "scribes" | "schedule" | "employees" | "facilities" | "ai";
 
 const SECTION_ROLES: Record<Section, string[]> = {
   overview: ["ADMIN"],
@@ -34,6 +34,7 @@ const SECTION_ROLES: Record<Section, string[]> = {
   schedule: ["ADMIN"],
   employees: ["ADMIN", "HR"],
   facilities: ["ADMIN", "HIM"],
+  ai: ["ADMIN"],
 };
 
 const has = (roles: readonly string[], allowed: readonly string[]) => roles.some((r) => allowed.includes(r));
@@ -60,7 +61,7 @@ export function assignmentTypesFor(roles: readonly string[]): string[] {
 export function sectionForPath(path: string): Section | null {
   if (path === "/") return "overview";
   const first = path.split("/")[1] ?? "";
-  return (["providers", "scribes", "schedule", "employees", "facilities"] as const).find((s) => s === first) ?? null;
+  return (["providers", "scribes", "schedule", "employees", "facilities", "ai"] as const).find((s) => s === first) ?? null;
 }
 
 /** Where someone lands: the first section they can see. */
