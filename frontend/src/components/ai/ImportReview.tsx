@@ -19,6 +19,7 @@ import {
   type ImportDraft,
   type ImportRow,
   type RowStatus,
+  type RowTime,
   type Unmatched,
 } from "@/lib/ai/imports";
 import { formatDate } from "@/lib/format";
@@ -445,6 +446,7 @@ function RowItem({
                   <SearchPicker ariaLabel="Facility" value={r.facility.id} valueLabel={r.facility.name} placeholder="Search facilities…" load={loaders.facilities} disabled={busy} onChange={(o) => onChange(r, { facilityId: o.id })} />
                 </label>
               )}
+              <TimeEditor row={r} disabled={busy} onSave={(time) => onChange(r, { time }, "Time updated.")} />
               {unclear && (
                 <button type="button" className="button" disabled={busy} onClick={() => onChange(r, { accepted: !r.accepted })}>
                   {r.accepted ? "Undo accept" : "Accept as read"}
@@ -458,5 +460,37 @@ function RowItem({
         </div>
       )}
     </li>
+  );
+}
+
+/** The row's time, editable: a block, or a start and end (e.g. the real end of a visit whose end was assumed). */
+function TimeEditor({ row, disabled, onSave }: { row: ImportRow; disabled: boolean; onSave: (time: RowTime) => void }) {
+  const [block, setBlock] = useState<RowTime["block"]>((row.timeBlock as RowTime["block"]) ?? "all_day");
+  const [start, setStart] = useState(row.startTime ?? "08:00");
+  const [end, setEnd] = useState(row.endTime ?? "17:00");
+  const assumed = row.issues.some((i) => i.kind === "assumed");
+  const changed = block !== row.timeBlock || (block === "custom" && (start !== row.startTime || end !== row.endTime));
+  const invalid = block === "custom" && (!start || !end || end <= start);
+  return (
+    <div className={`review-time${assumed ? " is-assumed" : ""}`}>
+      <span className="review-time-label">{assumed ? "Set the real end time" : "Time"}</span>
+      <select aria-label="Time block" value={block} onChange={(e) => setBlock(e.target.value as RowTime["block"])} disabled={disabled}>
+        <option value="am">AM (8–12)</option>
+        <option value="pm">PM (1–5)</option>
+        <option value="all_day">All day</option>
+        <option value="custom">Set times</option>
+      </select>
+      {block === "custom" && (
+        <>
+          <input type="time" aria-label="Start" value={start} onChange={(e) => setStart(e.target.value)} disabled={disabled} />
+          <span className="muted">to</span>
+          <input type="time" aria-label="End" value={end} onChange={(e) => setEnd(e.target.value)} disabled={disabled} />
+        </>
+      )}
+      <button type="button" className="button" disabled={disabled || invalid || (!changed && !assumed)} onClick={() => onSave(block === "custom" ? { block, start, end } : { block })}>
+        {assumed && !changed ? "Keep this time" : "Save time"}
+      </button>
+      {invalid && <span className="record-error">The end must be after the start.</span>}
+    </div>
   );
 }

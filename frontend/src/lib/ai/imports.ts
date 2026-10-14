@@ -156,7 +156,8 @@ export function uploadSchedule(file: File): Promise<ImportDraft> {
   return request<ImportDraft>("/api/schedule-imports", { method: "POST", body: form });
 }
 export const getImport = (id: string) => request<ImportDraft>(`/api/schedule-imports/${encodeURIComponent(id)}`);
-export const updateImportRow = (id: string, rowId: string, change: { staffId?: string | null; facilityId?: string | null; excluded?: boolean; accepted?: boolean; sameLabel?: boolean }) =>
+export type RowTime = { block: "am" | "pm" | "all_day" } | { block: "custom"; start: string; end: string };
+export const updateImportRow = (id: string, rowId: string, change: { staffId?: string | null; facilityId?: string | null; excluded?: boolean; accepted?: boolean; sameLabel?: boolean; time?: RowTime }) =>
   request<ImportDraft>(`/api/schedule-imports/${encodeURIComponent(id)}/rows/${encodeURIComponent(rowId)}`, { method: "PATCH", body: JSON.stringify(change) });
 export const applyImport = (id: string, confirmWarnings: boolean) =>
   request<{ result: { applied: number; failed: { rowId: string; cellRef: string; sheet: string; message: string }[]; remaining: number }; draft: ImportDraft }>(`/api/schedule-imports/${encodeURIComponent(id)}/apply`, {
