@@ -53,7 +53,7 @@ function ImportCard({ block }: { block: Extract<Block, { type: "import" }> }) {
   return (
     <div className="ai-import-card">
       <div className="ai-import-head">
-        <span className="ai-import-kind">Proposed schedule changes</span>
+        <span className="ai-import-kind">Proposed schedule changes{block.source === "image" ? " · from a picture" : ""}</span>
         <span className="ai-import-file">{block.fileName}</span>
       </div>
       <p className="ai-import-line">

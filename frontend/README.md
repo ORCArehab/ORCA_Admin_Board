@@ -145,9 +145,12 @@ database, credentials or personal contact details, and it can't change anything.
 whether a language model is connected, in demo mode (a scripted planner calling the same real
 tools) or off; with it off, questions are disabled but uploads still work.
 
-**Schedule uploads.** The paperclip (or the upload card) takes an `.xlsx` workbook of up to 4 MB:
-a calendar grid (providers or facilities down the side, dates across), or a list with Date /
-Provider / Facility columns. The ORCA API reads it, matches names to employees and facilities,
+**Schedule uploads.** The paperclip (or the upload card) takes an `.xlsx` workbook, or a
+picture of a schedule (PNG, JPEG or WebP: a screenshot or a photo), up to 4 MB: a calendar grid
+(providers or facilities down the side, dates across), or a list with Date / Provider / Facility
+columns. A picture is first transcribed into rows and columns by the vision model (cells it
+couldn't read clearly, and rows that may have lost a cell, are marked Needs review); the review
+page says it came from a picture. iPhone HEIC photos aren't accepted: upload a screenshot or JPEG. The ORCA API reads it, matches names to employees and facilities,
 checks every proposed entry against the schedule's own rules, and saves a **draft**. Nothing is
 scheduled yet. The answer links to the review page, `/ai/imports/[id]`:
 - each sheet and how it was read (or why it was skipped);

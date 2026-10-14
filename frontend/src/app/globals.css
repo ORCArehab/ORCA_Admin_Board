@@ -808,6 +808,7 @@ a.info-primary { color: var(--accent); }
 .review-notice { margin: 0 0 12px; padding: 9px 14px; border-radius: 6px; font-size: 13px; }
 .review-notice-ok { background: var(--accent-soft); color: var(--accent); }
 .review-notice-warn { background: var(--caution-soft); color: var(--caution); border: 1px solid var(--caution-border); }
+.review-picture { margin: 0 0 12px; padding: 9px 14px; border-radius: 6px; font-size: 13px; border: 1px solid var(--caution-border); background: var(--caution-soft); color: var(--caution); }
 .review-sheets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .review-sheet { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--surface-muted); color: var(--text-muted); }
 .review-sheet strong { color: var(--text); font-weight: 600; }

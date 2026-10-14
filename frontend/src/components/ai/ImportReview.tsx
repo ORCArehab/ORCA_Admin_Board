@@ -39,7 +39,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 const ATTENTION = new Set(["needs_review", "conflict", "warning"]);
 
 /**
- * Review of an uploaded schedule workbook. Every proposed assignment keeps its sheet and cell.
+ * Review of an uploaded schedule (a workbook, or a picture transcribed by the vision model). Every proposed assignment keeps its sheet and cell.
  * Unmatched names are fixed once for all their rows; rows can be inspected, corrected,
  * accepted as read or excluded; Apply adds only approved rows, through the schedule's own checks.
  */
@@ -163,6 +163,12 @@ export function ImportReview({ id }: { id: string }) {
         </p>
       )}
 
+      {summary.source === "image" && (
+        <p className="review-picture">
+          Read from a picture. Compare names, dates and times with the original before applying; cells that were hard to read, or rows that may have lost a cell, are marked Needs review.
+        </p>
+      )}
+
       <section className="review-sheets" aria-label="Sheets">
         {summary.sheets.map((s) => (
           <span key={s.name} className={`review-sheet${s.layout ? "" : " is-skipped"}`} title={s.reason ?? undefined}>
@@ -174,7 +180,7 @@ export function ImportReview({ id }: { id: string }) {
       {editable && (summary.unmatchedProviders.length > 0 || summary.unmatchedFacilities.length > 0) && (
         <section className="review-unmatched" aria-labelledby="unmatched-title">
           <h2 id="unmatched-title">Names to match</h2>
-          <p className="muted">Choose who or where each name in the workbook is. It applies to every row with that name.</p>
+          <p className="muted">Choose who or where each name in the file is. It applies to every row with that name.</p>
           <div className="review-unmatched-grid">
             {summary.unmatchedProviders.map((u) => (
               <LabelMatcher key={`p-${u.label}`} kind="provider" label={u.label} rows={u.rows} status={u.status} suggested={u.status === "suggested" ? draft.rows.find((r) => r.providerLabel === u.label)?.staff.candidates[0]?.id : undefined} options={staff.map((s) => ({ id: s.id, name: s.displayName }))} disabled={busy}
@@ -209,7 +215,7 @@ export function ImportReview({ id }: { id: string }) {
       ) : (
         <ul className="review-rows">
           {rows.map((r) => (
-            <RowItem key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} staff={staff} facilities={facilities} onChange={change} />
+            <RowItem key={r.id} row={r} picture={summary.source === "image"} oneSheet={summary.sheets.filter((x) => x.layout).length <= 1} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} staff={staff} facilities={facilities} onChange={change} />
           ))}
         </ul>
       )}
@@ -286,6 +292,8 @@ function LabelMatcher({ kind, label, rows, status, suggested, options, disabled,
 
 function RowItem({
   row: r,
+  picture,
+  oneSheet,
   open,
   onToggle,
   editable,
@@ -295,6 +303,9 @@ function RowItem({
   onChange,
 }: {
   row: ImportRow;
+  picture: boolean;
+  /** With one sheet read, the cell alone says where a row came from. */
+  oneSheet: boolean;
   open: boolean;
   onToggle: () => void;
   editable: boolean;
@@ -311,8 +322,8 @@ function RowItem({
   return (
     <li className={`review-row status-${status}`}>
       <button type="button" className="review-row-head" onClick={onToggle} aria-expanded={open}>
-        <span className="review-where">
-          {r.sheet}!{r.cellRef}
+        <span className="review-where" title={`${r.sheet}!${r.cellRef}`}>
+          {oneSheet ? r.cellRef : `${r.sheet}!${r.cellRef}`}
         </span>
         <span className="review-date">{r.date ? formatDate(r.date) : "—"}</span>
         <span className={`review-who match-${r.staff.match}`}>{who}</span>
@@ -325,7 +336,7 @@ function RowItem({
       {open && (
         <div className="review-detail">
           <dl>
-            <dt>In the workbook</dt>
+            <dt>{picture ? "In the picture" : "In the workbook"}</dt>
             <dd>
               <code>{r.sourceText}</code>
             </dd>

@@ -1,6 +1,18 @@
-/** Schedule workbook imports (ORCA_Backend_API src/scheduleImport): types, labels and the browser client. */
+/** Schedule imports from workbooks and pictures (ORCA_Backend_API src/scheduleImport): types, labels and the browser client. */
 
-export const MAX_WORKBOOK_BYTES = 4 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+/** What can be uploaded: an .xlsx workbook, or a picture of a schedule (read by the vision model). */
+export const UPLOAD_NAME = /\.(xlsx|png|jpe?g|webp)$/i;
+export const UPLOAD_ACCEPT = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp";
+export const isPicture = (name: string) => /\.(png|jpe?g|webp)$/i.test(name);
+
+/** Why a file can't be uploaded, or null. */
+export function uploadProblem(file: { name: string; size: number }): string | null {
+  if (/\.(heic|heif)$/i.test(file.name)) return `"${file.name}" is an iPhone HEIC photo, which can't be read. Take a screenshot of it, or export it as JPEG, and upload that.`;
+  if (!UPLOAD_NAME.test(file.name)) return `"${file.name}" isn't an .xlsx workbook or a PNG, JPEG or WebP picture.`;
+  if (file.size > MAX_UPLOAD_BYTES) return `"${file.name}" is larger than 4 MB.`;
+  return null;
+}
 
 export type RowStatus = "ready" | "warning" | "conflict" | "duplicate" | "needs_review" | "skipped" | "applied";
 export type MatchStatus = "matched" | "suggested" | "ambiguous" | "unknown" | "manual";
@@ -33,6 +45,8 @@ export interface ImportRow {
 export interface ImportSummary {
   id: string;
   fileName: string;
+  /** "image": transcribed from a picture by the vision model. */
+  source?: "workbook" | "image";
   status: "draft" | "applied" | "discarded";
   createdBy: string;
   createdAt: string;
@@ -118,7 +132,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function uploadWorkbook(file: File): Promise<ImportDraft> {
+export function uploadSchedule(file: File): Promise<ImportDraft> {
   const form = new FormData();
   form.set("file", file, file.name);
   return request<ImportDraft>("/api/schedule-imports", { method: "POST", body: form });
