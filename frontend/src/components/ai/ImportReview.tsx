@@ -22,8 +22,24 @@ import {
   type Unmatched,
 } from "@/lib/ai/imports";
 import { formatDate } from "@/lib/format";
+import { SearchPicker } from "@/components/SearchPicker";
 import { listFacilities, listStaff } from "@/lib/org/api";
-import type { Facility, Staff } from "@/lib/org/types";
+import type { PickerOption } from "@/lib/search";
+
+/** Pickers search current employees and facilities that aren't archived; loaded on first use, once per page. */
+type Loaders = { staff: () => Promise<PickerOption[]>; facilities: () => Promise<PickerOption[]> };
+function makeLoaders(): Loaders {
+  let staff: Promise<PickerOption[]> | null = null;
+  let facilities: Promise<PickerOption[]> | null = null;
+  return {
+    staff: () =>
+      (staff ??= listStaff().then((list) =>
+        list.filter((x) => x.employmentStatus !== "separated").map((x) => ({ id: x.id, label: x.displayName, keywords: [x.firstName, x.lastName, x.preferredName ?? ""] })),
+      )),
+    facilities: () =>
+      (facilities ??= listFacilities().then((list) => list.filter((x) => !x.archivedAt).map((x) => ({ id: x.id, label: x.name, detail: x.abbreviation, keywords: [x.abbreviation ?? ""] })))),
+  };
+}
 
 type Filter = RowStatus | "excluded" | "attention" | "all";
 const FILTERS: { key: Filter; label: string }[] = [
@@ -54,8 +70,7 @@ export function ImportReview({ id }: { id: string }) {
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [includeWarnings, setIncludeWarnings] = useState(false);
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [loaders] = useState(makeLoaders);
 
   useEffect(() => {
     let live = true;
@@ -67,9 +82,6 @@ export function ImportReview({ id }: { id: string }) {
       },
       (e) => live && setError(e instanceof Error ? e.message : "The import couldn't be loaded."),
     );
-    // Pickers: everyone current, and facilities that aren't archived.
-    listStaff().then((s) => live && setStaff(s.filter((x) => x.employmentStatus !== "separated").sort((a, b) => a.displayName.localeCompare(b.displayName))), () => {});
-    listFacilities().then((f) => live && setFacilities(f.filter((x) => !x.archivedAt).sort((a, b) => a.name.localeCompare(b.name))), () => {});
     return () => {
       live = false;
     };
@@ -214,7 +226,7 @@ export function ImportReview({ id }: { id: string }) {
           </div>
           <div className="review-unmatched-grid">
             {summary.unmatchedProviders.map((u) => (
-              <LabelMatcher key={`p-${u.label}`} kind="provider" item={u} options={staff.map((s) => ({ id: s.id, name: s.displayName }))} disabled={busy}
+              <LabelMatcher key={`p-${u.label}`} kind="provider" item={u} load={loaders.staff} disabled={busy}
                 onPick={(pick) => {
                   const row = draft.rows.find((r) => r.providerLabel === u.label && r.status !== "applied");
                   if (row) void change(row, { staffId: pick, sameLabel: true }, `"${u.label}" matched for ${u.rows} ${u.rows === 1 ? "row" : "rows"}.`);
@@ -222,7 +234,7 @@ export function ImportReview({ id }: { id: string }) {
               />
             ))}
             {summary.unmatchedFacilities.map((u) => (
-              <LabelMatcher key={`f-${u.label}`} kind="facility" item={u} options={facilities.map((f) => ({ id: f.id, name: f.name }))} disabled={busy}
+              <LabelMatcher key={`f-${u.label}`} kind="facility" item={u} load={loaders.facilities} disabled={busy}
                 onPick={(pick) => {
                   const row = draft.rows.find((r) => r.facilityLabel === u.label && r.status !== "applied");
                   if (row) void change(row, { facilityId: pick, sameLabel: true }, `"${u.label}" matched for ${u.rows} ${u.rows === 1 ? "row" : "rows"}.`);
@@ -246,7 +258,7 @@ export function ImportReview({ id }: { id: string }) {
       ) : (
         <ul className="review-rows">
           {rows.map((r) => (
-            <RowItem key={r.id} row={r} picture={summary.source === "image"} oneSheet={summary.sheets.filter((x) => x.layout).length <= 1} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} staff={staff} facilities={facilities} onChange={change} />
+            <RowItem key={r.id} row={r} picture={summary.source === "image"} oneSheet={summary.sheets.filter((x) => x.layout).length <= 1} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} loaders={loaders} onChange={change} />
           ))}
         </ul>
       )}
@@ -296,7 +308,7 @@ export function ImportReview({ id }: { id: string }) {
   );
 }
 
-function LabelMatcher({ kind, item, options, disabled, onPick }: { kind: "provider" | "facility"; item: Unmatched; options: { id: string; name: string }[]; disabled: boolean; onPick: (id: string) => void }) {
+function LabelMatcher({ kind, item, load, disabled, onPick }: { kind: "provider" | "facility"; item: Unmatched; load: () => Promise<PickerOption[]>; disabled: boolean; onPick: (id: string) => void }) {
   // The best guess is preselected; nothing is saved until the admin confirms (here or with Confirm all).
   const [value, setValue] = useState(item.suggestion?.id ?? "");
   const confirming = !!item.suggestion && value === item.suggestion.id;
@@ -313,14 +325,15 @@ function LabelMatcher({ kind, item, options, disabled, onPick }: { kind: "provid
         </span>
       </span>
       <span className="review-label-pick">
-        <select aria-label={`Match for ${item.label}`} value={value} onChange={(e) => setValue(e.target.value)} disabled={disabled}>
-          <option value="">Choose a {kind}…</option>
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
+        <SearchPicker
+          ariaLabel={`Match for ${item.label}`}
+          value={value || null}
+          valueLabel={item.suggestion && value === item.suggestion.id ? item.suggestion.name : undefined}
+          placeholder={kind === "provider" ? "Search employees…" : "Search facilities…"}
+          load={load}
+          disabled={disabled}
+          onChange={(o) => setValue(o.id)}
+        />
         <button type="button" className="button" disabled={disabled || !value} onClick={() => onPick(value)}>
           {confirming ? "Confirm" : "Match"}
         </button>
@@ -337,8 +350,7 @@ function RowItem({
   onToggle,
   editable,
   busy,
-  staff,
-  facilities,
+  loaders,
   onChange,
 }: {
   row: ImportRow;
@@ -349,8 +361,7 @@ function RowItem({
   onToggle: () => void;
   editable: boolean;
   busy: boolean;
-  staff: Staff[];
-  facilities: Facility[];
+  loaders: Loaders;
   onChange: (row: ImportRow, change: Parameters<typeof updateImportRow>[2], message?: string) => void;
 }) {
   const status = effectiveStatus(r);
@@ -422,8 +433,16 @@ function RowItem({
                     {c.best ? "Suggested facility" : "Facility"}: {c.name}
                   </button>
                 ))}
-              <Picker label="Provider" value={r.staff.id} options={staff.map((s) => ({ id: s.id, name: s.displayName }))} disabled={busy} onPick={(v) => onChange(r, { staffId: v })} />
-              {(r.type === "facility" || r.type === "coverage") && <Picker label="Facility" value={r.facility.id} options={facilities.map((f) => ({ id: f.id, name: f.name }))} disabled={busy} onPick={(v) => onChange(r, { facilityId: v })} />}
+              <label className="review-picker">
+                <span>Provider</span>
+                <SearchPicker ariaLabel="Provider" value={r.staff.id} valueLabel={r.staff.name} placeholder="Search employees…" load={loaders.staff} disabled={busy} onChange={(o) => onChange(r, { staffId: o.id })} />
+              </label>
+              {(r.type === "facility" || r.type === "coverage") && (
+                <label className="review-picker">
+                  <span>Facility</span>
+                  <SearchPicker ariaLabel="Facility" value={r.facility.id} valueLabel={r.facility.name} placeholder="Search facilities…" load={loaders.facilities} disabled={busy} onChange={(o) => onChange(r, { facilityId: o.id })} />
+                </label>
+              )}
               {unclear && (
                 <button type="button" className="button" disabled={busy} onClick={() => onChange(r, { accepted: !r.accepted })}>
                   {r.accepted ? "Undo accept" : "Accept as read"}
@@ -437,21 +456,5 @@ function RowItem({
         </div>
       )}
     </li>
-  );
-}
-
-function Picker({ label, value, options, disabled, onPick }: { label: string; value: string | null; options: { id: string; name: string }[]; disabled: boolean; onPick: (id: string) => void }) {
-  return (
-    <label className="review-picker">
-      <span>{label}</span>
-      <select value={value ?? ""} onChange={(e) => e.target.value && onPick(e.target.value)} disabled={disabled}>
-        <option value="">{value ? "Change…" : "Choose…"}</option>
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }

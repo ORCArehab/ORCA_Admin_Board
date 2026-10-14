@@ -32,6 +32,8 @@ export function AiWorkspace() {
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const [pending, setPending] = useState<File | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -90,9 +92,26 @@ export function AiWorkspace() {
   function submit(e?: FormEvent) {
     e?.preventDefault();
     const text = input.trim();
-    if (!text || busy || !enabled) return;
+    if (busy) return;
+    if (pending) {
+      // The attached file goes with whatever was typed, as one message.
+      const file = pending;
+      setPending(null);
+      setInput("");
+      void sendFile(file, text);
+      return;
+    }
+    if (!text || !enabled) return;
     setInput("");
     void ask(text, messages);
+  }
+
+  /** Attaching only stages the file in the composer; it's read when the message is sent. */
+  function stage(file: File) {
+    const problem = uploadProblem(file);
+    if (problem) return addLocal(problem);
+    setPending(file);
+    textRef.current?.focus();
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -102,9 +121,7 @@ export function AiWorkspace() {
     }
   }
 
-  async function attach(file: File) {
-    const problem = uploadProblem(file);
-    if (problem) return addLocal(problem);
+  async function sendFile(file: File, text: string) {
     const picture = isPicture(file.name);
     const placeholder: ChatMessage = { id: newId(), role: "assistant", text: picture ? `Reading the schedule in "${file.name}"… (pictures take a few seconds)` : `Reading "${file.name}"…`, blocks: [], tools: [], status: "streaming" };
     setMessages((all) => [...all, placeholder]);
@@ -115,12 +132,12 @@ export function AiWorkspace() {
       const prior = messages;
       if (enabled) {
         setBusy(false);
-        await ask(`Here's a schedule ${picture ? "picture" : "workbook"}. Summarize what's ready, what needs my attention, and why.`, prior, { attachment: { fileName: file.name, importId: draft.summary.id } });
+        await ask(text || `Here's a schedule ${picture ? "picture" : "workbook"}. Summarize what's ready, what needs my attention, and why.`, prior, { attachment: { fileName: file.name, importId: draft.summary.id } });
       } else {
         // Without a language model, the deterministic summary and review screen still work.
         setMessages((all) => [
           ...all,
-          { id: newId(), role: "user", text: `Uploaded a schedule ${picture ? "picture" : "workbook"}.`, blocks: [], tools: [], status: "done", attachment: { fileName: file.name, importId: draft.summary.id } },
+          { id: newId(), role: "user", text: text || `Uploaded a schedule ${picture ? "picture" : "workbook"}.`, blocks: [], tools: [], status: "done", attachment: { fileName: file.name, importId: draft.summary.id } },
           {
             id: newId(),
             role: "assistant",
@@ -191,31 +208,59 @@ export function AiWorkspace() {
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = "";
-            if (file) void attach(file);
+            if (file) stage(file);
           }}
         />
-        <button type="button" className="ai-attach" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Upload a schedule" title="Upload a schedule: .xlsx, or a PNG / JPEG picture">
+        <button type="button" className="ai-attach" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Attach a schedule" title="Attach a schedule: .xlsx, or a PNG / JPEG picture">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7" />
           </svg>
         </button>
+        <div className={`ai-input${pending ? " has-file" : ""}`}>
+          {pending && (
+            <span className="ai-file-chip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                <path d="M14 3v5h5" />
+              </svg>
+              <span className="ai-file-name">{pending.name}</span>
+              <button type="button" className="ai-file-remove" onClick={() => setPending(null)} aria-label={`Remove ${pending.name}`} disabled={busy}>
+                ×
+              </button>
+            </span>
+          )}
         <textarea
+          ref={textRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKey}
           rows={1}
-          placeholder={enabled ? "Ask about a provider, a facility, the schedule…" : "Questions are off until ORCA AI is connected"}
-          disabled={!enabled}
+          placeholder={
+            pending
+              ? enabled
+                ? "Add a note for ORCA AI (optional), e.g. \"this is next week; Dr. Kim is Ann\""
+                : "Press send to read this file"
+              : enabled
+                ? "Ask about a provider, a facility, the schedule…"
+                : "Questions are off until ORCA AI is connected"
+          }
+          disabled={!enabled && !pending}
           aria-label="Message ORCA AI"
           maxLength={4000}
         />
+        </div>
         {busy && abortRef.current ? (
-          <button type="button" className="button" onClick={() => abortRef.current?.abort()}>
-            Stop
+          <button type="button" className="ai-send ai-stop" onClick={() => abortRef.current?.abort()} aria-label="Stop" title="Stop">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="5" y="5" width="14" height="14" rx="2" />
+            </svg>
           </button>
         ) : (
-          <button type="submit" className="button button-primary-sm" disabled={!enabled || busy || !input.trim()}>
-            Ask
+          <button type="submit" className="ai-send" disabled={busy || (pending ? false : !enabled || !input.trim())} aria-label="Send" title="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 19V5" />
+              <path d="m5 12 7-7 7 7" />
+            </svg>
           </button>
         )}
       </form>
