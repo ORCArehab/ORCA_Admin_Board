@@ -32,14 +32,30 @@ export interface ImportRow {
   endTime: string | null;
   coveringLabel: string | null;
   notes: string | null;
-  staff: { id: string | null; name: string | null; match: MatchStatus; candidates: { id: string; name: string }[] };
-  facility: { id: string | null; name: string | null; match: MatchStatus; candidates: { id: string; name: string }[] };
+  staff: { id: string | null; name: string | null; match: MatchStatus; candidates: Candidate[] };
+  facility: { id: string | null; name: string | null; match: MatchStatus; candidates: Candidate[] };
   status: RowStatus;
   issues: { kind: string; message: string }[];
   existing: { id: string; label: string }[];
   excluded: boolean;
   accepted: boolean;
   appliedEntryId: string | null;
+}
+
+/** A possible match; `best` marks the import's best guess, with why. */
+export interface Candidate {
+  id: string;
+  name: string;
+  best?: boolean;
+  reason?: string;
+}
+
+/** A name in the file not matched yet, with the best guess (if there's a reasonable one) to confirm. */
+export interface Unmatched {
+  label: string;
+  rows: number;
+  status: MatchStatus;
+  suggestion?: { id: string; name: string; reason: string | null } | null;
 }
 
 export interface ImportSummary {
@@ -54,8 +70,10 @@ export interface ImportSummary {
   sheets: { name: string; layout: string | null; items: number; reason: string | null }[];
   counts: Record<RowStatus | "excluded" | "total", number>;
   dateRange: { from: string | null; to: string | null };
-  unmatchedProviders: { label: string; rows: number; status: MatchStatus }[];
-  unmatchedFacilities: { label: string; rows: number; status: MatchStatus }[];
+  unmatchedProviders: Unmatched[];
+  unmatchedFacilities: Unmatched[];
+  /** Best guesses waiting for the admin to confirm. */
+  suggestions?: number;
 }
 
 export interface ImportDraft {
@@ -145,4 +163,7 @@ export const applyImport = (id: string, confirmWarnings: boolean) =>
     method: "POST",
     body: JSON.stringify({ confirmWarnings }),
   });
+/** Confirms best guesses: every one, or just these labels. */
+export const confirmSuggestions = (id: string, labels?: { kind: "provider" | "facility"; label: string }[]) =>
+  request<ImportDraft>(`/api/schedule-imports/${encodeURIComponent(id)}/confirm-suggestions`, { method: "POST", body: JSON.stringify(labels ? { labels } : {}) });
 export const discardImport = (id: string) => request<{ discarded: boolean }>(`/api/schedule-imports/${encodeURIComponent(id)}/discard`, { method: "POST", body: "{}" });

@@ -104,7 +104,8 @@ screen. The first time (or if QuickBooks Time ever stops accepting the connectio
 back to `/api/quickbooks-time/callback`, which hands the code to the ORCA API. After that the
 ORCA API keeps the connection renewed by itself; this app never holds a token. It first shows a preview from the ORCA API: how many events will be added, updated and
 removed, what isn't sent (PTO, Off, Admin, Clinic), and any provider or facility that still needs
-matching to a QuickBooks Time user or jobcode, which is picked right there and remembered.
+matching to a QuickBooks Time user or jobcode, with ORCA's best guess preselected: **Confirm
+all** links them (remembered for next time), or pick another.
 **Send as drafts** then makes QuickBooks Time match the week. New events arrive as drafts, so
 nobody is notified until they're published in QuickBooks Time. Refusals from QuickBooks Time
 are listed, and tried again on the next send. The rules live in the ORCA API (ORCA_Backend_API
@@ -145,7 +146,7 @@ database, credentials or personal contact details, and it can't change anything.
 whether a language model is connected, in demo mode (a scripted planner calling the same real
 tools) or off; with it off, questions are disabled but uploads still work.
 
-**Schedule uploads.** The paperclip (or the upload card) takes an `.xlsx` workbook, or a
+**Schedule uploads.** The paperclip takes an `.xlsx` workbook, or a
 picture of a schedule (PNG, JPEG or WebP: a screenshot or a photo), up to 4 MB: a calendar grid
 (providers or facilities down the side, dates across), or a list with Date / Provider / Facility
 columns. A picture is first transcribed into rows and columns by the vision model (cells it
@@ -154,8 +155,10 @@ page says it came from a picture. iPhone HEIC photos aren't accepted: upload a s
 checks every proposed entry against the schedule's own rules, and saves a **draft**. Nothing is
 scheduled yet. The answer links to the review page, `/ai/imports/[id]`:
 - each sheet and how it was read (or why it was skipped);
-- **Names to match**: a name the API couldn't place (or could place more than one way) is chosen
-  once for every row that uses it; probable matches are preselected but saved only on **Match**;
+- **Names to match**: each name the API couldn't place outright shows ORCA AI's best guess (and
+  why: "assigned to Alpha Post Acute", "closest name"), preselected. **Confirm all** accepts every
+  guess at once; any can be changed first, and names with no reasonable guess are chosen by hand.
+  A choice applies to every row with that name;
 - rows by status (Ready, Warnings, Needs review, Conflicts, Already scheduled, Skipped,
   Excluded, Added), each with its sheet and cell, the original text, why it has that status,
   what's already scheduled that day, and controls to change the provider or facility, accept an

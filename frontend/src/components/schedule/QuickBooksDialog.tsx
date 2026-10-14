@@ -71,6 +71,21 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
     }
   }
 
+  const [confirmingAll, setConfirmingAll] = useState(false);
+  /** Links every suggested match (each remembered for next time), then refreshes the preview. */
+  async function confirmAll(preview: QuickBooksPreview) {
+    setConfirmingAll(true);
+    try {
+      for (const u of preview.unmatchedStaff) if (u.suggestion) await linkQuickBooks("staff", u.id, u.suggestion.id);
+      for (const f of preview.unmatchedFacilities) if (f.suggestion) await linkQuickBooks("facilities", f.id, f.suggestion.id);
+      load();
+    } catch (error) {
+      setState(failed(error, "The matches couldn't be saved."));
+    } finally {
+      setConfirmingAll(false);
+    }
+  }
+
   async function connect() {
     setState((s) => (s.status === "connect" ? { ...s, busy: true } : s));
     try {
@@ -96,6 +111,7 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
   const portal = preview ? portalLine(preview.portal) : null;
   const lines = preview ? [...previewLines(preview.summary), ...(portal ? [portal] : [])] : [];
   const notes = preview ? previewNotes(preview.summary) : [];
+  const suggestionCount = preview ? [...preview.unmatchedStaff, ...preview.unmatchedFacilities].filter((u) => u.suggestion).length : 0;
 
   return (
     <dialog ref={dialogRef} className="editor quickbooks" aria-labelledby="qb-title" onClose={onClose} onCancel={onClose}>
@@ -166,6 +182,16 @@ export function QuickBooksDialog({ weekStart, onClose }: { weekStart: string; on
               </ul>
             )}
 
+            {suggestionCount > 0 && (
+              <div className="quickbooks-suggest">
+                <span>
+                  ORCA suggested {suggestionCount === 1 ? "a match" : `${suggestionCount} matches`} in QuickBooks Time. Check them below, then confirm.
+                </span>
+                <button type="button" className="button button-primary-sm" onClick={() => confirmAll(preview)} disabled={sending || confirmingAll}>
+                  {confirmingAll ? "Confirming…" : suggestionCount === 1 ? "Confirm suggestion" : `Confirm all ${suggestionCount}`}
+                </button>
+              </div>
+            )}
             {preview.unmatchedStaff.length > 0 && (
               <MatchList
                 title="Providers not found in QuickBooks Time"
@@ -252,12 +278,13 @@ function MatchList({
   title: string;
   hint: string;
   kind: "staff" | "facilities";
-  rows: { id: string; name: string; entries: number }[];
+  rows: { id: string; name: string; entries: number; suggestion?: { id: number; name: string; reason: string } | null }[];
   options: { id: number; label: string }[];
   disabled: boolean;
   onLinked: () => void;
 }) {
-  const [chosen, setChosen] = useState<Record<string, string>>({});
+  // Best guesses are preselected; each is saved only when confirmed.
+  const [chosen, setChosen] = useState<Record<string, string>>(() => Object.fromEntries(rows.filter((r) => r.suggestion).map((r) => [r.id, String(r.suggestion!.id)])));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -284,6 +311,7 @@ function MatchList({
           <li key={row.id}>
             <span className="quickbooks-match-name">
               {row.name} <span className="muted">· {row.entries} {row.entries === 1 ? "entry" : "entries"}</span>
+              {row.suggestion && <span className="quickbooks-match-why">Suggested: {row.suggestion.name} ({row.suggestion.reason})</span>}
             </span>
             <span className="quickbooks-match-pick">
               <select aria-label={`QuickBooks Time match for ${row.name}`} value={chosen[row.id] ?? ""} onChange={(e) => setChosen((c) => ({ ...c, [row.id]: e.target.value }))} disabled={disabled || busy !== null}>
@@ -295,7 +323,7 @@ function MatchList({
                 ))}
               </select>
               <button type="button" className="button" onClick={() => save(row.id)} disabled={disabled || busy !== null || !chosen[row.id]}>
-                {busy === row.id ? "Saving…" : "Match"}
+                {busy === row.id ? "Saving…" : row.suggestion && chosen[row.id] === String(row.suggestion.id) ? "Confirm" : "Match"}
               </button>
             </span>
           </li>

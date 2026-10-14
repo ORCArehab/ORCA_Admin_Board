@@ -2,12 +2,19 @@ import { ApiError } from "@/lib/api";
 
 /** Browser client for /api/quickbooks-time/*: sending a week of the schedule to QuickBooks Time. */
 
+export interface QuickBooksSuggestion {
+  id: number;
+  name: string;
+  reason: string;
+}
+
 export interface QuickBooksPreview {
   weekStart: string;
   calendar: { id: number; name: string };
   summary: { create: number; update: number; remove: number; unchanged: number; notSent: number; blocked: number };
-  unmatchedStaff: { id: string; name: string; entries: number }[];
-  unmatchedFacilities: { id: string; name: string; entries: number }[];
+  /** `suggestion`: the best guess (a near name, the same email username), linked only once confirmed. */
+  unmatchedStaff: { id: string; name: string; entries: number; suggestion?: QuickBooksSuggestion | null }[];
+  unmatchedFacilities: { id: string; name: string; entries: number; suggestion?: QuickBooksSuggestion | null }[];
   users: { id: number; name: string; email: string | null }[];
   jobcodes: { id: number; name: string }[];
   lastSent: { at: string; by: string; created: number; updated: number; removed: number; failed: number } | null;

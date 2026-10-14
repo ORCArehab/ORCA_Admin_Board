@@ -164,7 +164,10 @@ export function AiWorkspace() {
         {messages.length === 0 ? (
           <div className="ai-empty">
             <h2>What would you like to know?</h2>
-            <p>Answers come from ORCA&apos;s records: the schedule, employees, facilities and the operations dashboard. ORCA AI can&apos;t change anything.</p>
+            <p>
+              Answers come from ORCA&apos;s records: the schedule, employees, facilities and the operations dashboard. ORCA AI can&apos;t change anything. To import a schedule, attach an .xlsx
+              or a picture of it with the paperclip below.
+            </p>
             <div className="ai-suggestions">
               {SUGGESTIONS.map((s) => (
                 <button key={s} type="button" className="ai-suggestion" onClick={() => void ask(s, [])} disabled={!enabled || busy}>
@@ -172,10 +175,6 @@ export function AiWorkspace() {
                 </button>
               ))}
             </div>
-            <button type="button" className="ai-upload-card" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <strong>Upload a provider schedule</strong>
-              <span>An .xlsx workbook, or a picture of one (PNG, JPEG, a screenshot or a photo): a calendar grid or a list. You&apos;ll review every change before anything is added.</span>
-            </button>
           </div>
         ) : (
           messages.map((m) => <Message key={m.id} message={m} />)
