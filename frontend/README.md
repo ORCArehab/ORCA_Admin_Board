@@ -134,3 +134,32 @@ Tabs, kept in the URL (`?tab=`) so they can be linked:
   bottom, for duplicates and mistakes. It's permanent, and the ORCA API refuses it when the
   facility has provider assignments, schedule entries or hospital logins. The page then says
   what's attached and points to Archive, which hides a facility and keeps its history.
+
+## ORCA AI (admins)
+
+`/ai` is a conversation about ORCA's own data: employees, facilities, the schedule, coverage
+gaps, conflicts and the operations dashboard's documentation and scribe metrics. The ORCA API
+answers by calling a fixed set of read-only tools (ORCA_Backend_API `src/ai`); tables appear
+under each answer, and the steps it took are listed above it. The model never sees the
+database, credentials or personal contact details, and it can't change anything. A pill shows
+whether a language model is connected, in demo mode (a scripted planner calling the same real
+tools) or off; with it off, questions are disabled but uploads still work.
+
+**Schedule uploads.** The paperclip (or the upload card) takes an `.xlsx` workbook of up to 4 MB:
+a calendar grid (providers or facilities down the side, dates across), or a list with Date /
+Provider / Facility columns. The ORCA API reads it, matches names to employees and facilities,
+checks every proposed entry against the schedule's own rules, and saves a **draft**. Nothing is
+scheduled yet. The answer links to the review page, `/ai/imports/[id]`:
+- each sheet and how it was read (or why it was skipped);
+- **Names to match**: a name the API couldn't place (or could place more than one way) is chosen
+  once for every row that uses it; probable matches are preselected but saved only on **Match**;
+- rows by status (Ready, Warnings, Needs review, Conflicts, Already scheduled, Skipped,
+  Excluded, Added), each with its sheet and cell, the original text, why it has that status,
+  what's already scheduled that day, and controls to change the provider or facility, accept an
+  unclear cell as read, or exclude it;
+- **Apply approved changes**: adds Ready rows (and rows with warnings only if that box is
+  ticked), each re-checked as it's added. Rows still needing review stay in the draft for later.
+  Providers see the new entries once the week is sent to QuickBooks Time.
+
+Files: `components/ai/` (AiWorkspace, Blocks, ImportReview), `lib/ai/` (stream parsing, import
+client), `/api/ai/*` (status, streamed chat) and `/api/schedule-imports/*` (proxies).

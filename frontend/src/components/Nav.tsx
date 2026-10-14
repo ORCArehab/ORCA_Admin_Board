@@ -22,7 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Schedule", href: "/schedule", section: "schedule", isActive: (p) => p.startsWith("/schedule") },
   { label: "Employees", href: "/employees", section: "employees", isActive: (p) => p.startsWith("/employees") },
   { label: "Facilities", href: "/facilities", section: "facilities", isActive: (p) => p.startsWith("/facilities") },
-  { label: "ORCA AI", href: "/ai", section: "overview", soon: true },
+  { label: "ORCA AI", href: "/ai", section: "ai", isActive: (p) => p.startsWith("/ai") },
 ];
 
 /** The employee portal, linked from the nav so admins can get back to it. */
