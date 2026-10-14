@@ -2,7 +2,7 @@
 export type Block =
   | { type: "table"; title: string; columns: { key: string; label: string }[]; rows: Record<string, string | number | null>[]; note?: string }
   | { type: "notice"; tone: "info" | "warning"; text: string }
-  | { type: "import"; importId: string; fileName: string; counts: Record<string, number>; dateRange: { from: string | null; to: string | null }; href: string };
+  | { type: "import"; importId: string; fileName: string; source?: "workbook" | "image"; counts: Record<string, number>; dateRange: { from: string | null; to: string | null }; href: string };
 
 export type ChatEvent =
   | { type: "text"; delta: string }

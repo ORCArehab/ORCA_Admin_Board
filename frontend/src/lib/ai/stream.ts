@@ -44,5 +44,5 @@ export function applyEvent(message: ChatMessage, event: ChatEvent): ChatMessage 
 export function historyFor(messages: ChatMessage[]): { role: "user" | "assistant"; content: string }[] {
   return messages
     .filter((m) => m.status !== "error" && (m.text.trim() || m.attachment))
-    .map((m) => ({ role: m.role, content: m.attachment ? `${m.text}\n\n[Attached workbook "${m.attachment.fileName}", draft import ${m.attachment.importId}]`.trim() : m.text }));
+    .map((m) => ({ role: m.role, content: m.attachment ? `${m.text}\n\n[Attached schedule "${m.attachment.fileName}", draft import ${m.attachment.importId}]`.trim() : m.text }));
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { MAX_WORKBOOK_BYTES, summaryLine, uploadWorkbook } from "@/lib/ai/imports";
+import { isPicture, summaryLine, UPLOAD_ACCEPT, uploadProblem, uploadSchedule } from "@/lib/ai/imports";
 import { applyEvent, historyFor, sseParser } from "@/lib/ai/stream";
 import type { AiStatus, ChatEvent, ChatMessage } from "@/lib/ai/types";
 import { BlockView } from "./Blocks";
@@ -20,7 +20,7 @@ const newId = () => `m${Date.now()}-${counter++}`;
 
 /**
  * ORCA AI: ask about employees, facilities, the schedule and operational metrics, or upload a
- * schedule workbook to review. Answers come from ORCA's own data through the ORCA API's tools;
+ * schedule (a workbook or a picture) to review. Answers come from ORCA's own data through the ORCA API's tools;
  * tables appear under each answer. The conversation lasts for this visit. ORCA AI never changes
  * anything: an uploaded schedule is applied by an admin on its review screen.
  */
@@ -103,28 +103,29 @@ export function AiWorkspace() {
   }
 
   async function attach(file: File) {
-    if (!/\.xlsx$/i.test(file.name)) return addLocal(`"${file.name}" isn't an .xlsx workbook. Save it from Excel or Google Sheets as .xlsx and try again.`);
-    if (file.size > MAX_WORKBOOK_BYTES) return addLocal(`"${file.name}" is larger than 4 MB.`);
-    const placeholder: ChatMessage = { id: newId(), role: "assistant", text: `Reading "${file.name}"…`, blocks: [], tools: [], status: "streaming" };
+    const problem = uploadProblem(file);
+    if (problem) return addLocal(problem);
+    const picture = isPicture(file.name);
+    const placeholder: ChatMessage = { id: newId(), role: "assistant", text: picture ? `Reading the schedule in "${file.name}"… (pictures take a few seconds)` : `Reading "${file.name}"…`, blocks: [], tools: [], status: "streaming" };
     setMessages((all) => [...all, placeholder]);
     setBusy(true);
     try {
-      const draft = await uploadWorkbook(file);
+      const draft = await uploadSchedule(file);
       setMessages((all) => all.filter((m) => m.id !== placeholder.id));
       const prior = messages;
       if (enabled) {
         setBusy(false);
-        await ask("Here's a schedule workbook. Summarize what's ready, what needs my attention, and why.", prior, { attachment: { fileName: file.name, importId: draft.summary.id } });
+        await ask(`Here's a schedule ${picture ? "picture" : "workbook"}. Summarize what's ready, what needs my attention, and why.`, prior, { attachment: { fileName: file.name, importId: draft.summary.id } });
       } else {
         // Without a language model, the deterministic summary and review screen still work.
         setMessages((all) => [
           ...all,
-          { id: newId(), role: "user", text: "Uploaded a schedule workbook.", blocks: [], tools: [], status: "done", attachment: { fileName: file.name, importId: draft.summary.id } },
+          { id: newId(), role: "user", text: `Uploaded a schedule ${picture ? "picture" : "workbook"}.`, blocks: [], tools: [], status: "done", attachment: { fileName: file.name, importId: draft.summary.id } },
           {
             id: newId(),
             role: "assistant",
             text: `I read "${file.name}": ${summaryLine(draft.summary.counts)}.`,
-            blocks: [{ type: "import", importId: draft.summary.id, fileName: draft.summary.fileName, counts: draft.summary.counts, dateRange: draft.summary.dateRange, href: `/ai/imports/${draft.summary.id}` }],
+            blocks: [{ type: "import", importId: draft.summary.id, fileName: draft.summary.fileName, source: draft.summary.source, counts: draft.summary.counts, dateRange: draft.summary.dateRange, href: `/ai/imports/${draft.summary.id}` }],
             tools: [],
             status: "done",
           },
@@ -133,7 +134,7 @@ export function AiWorkspace() {
       }
     } catch (error) {
       setMessages((all) => all.filter((m) => m.id !== placeholder.id));
-      addLocal(error instanceof Error ? error.message : "That workbook couldn't be read.");
+      addLocal(error instanceof Error ? error.message : "That file couldn't be read.");
       setBusy(false);
     }
   }
@@ -155,7 +156,7 @@ export function AiWorkspace() {
       {status === "error" && <p className="ai-banner">ORCA AI&apos;s status couldn&apos;t be checked. Try reloading the page.</p>}
       {status && status !== "error" && !status.enabled && (
         <p className="ai-banner">
-          ORCA AI isn&apos;t connected to a language model yet, so questions are off. You can still upload a schedule workbook: it&apos;s read, matched and checked without AI.
+          ORCA AI isn&apos;t connected to a language model yet, so questions are off. You can still upload an .xlsx schedule: it&apos;s read, matched and checked without AI. Pictures need the model.
         </p>
       )}
 
@@ -163,7 +164,10 @@ export function AiWorkspace() {
         {messages.length === 0 ? (
           <div className="ai-empty">
             <h2>What would you like to know?</h2>
-            <p>Answers come from ORCA&apos;s records: the schedule, employees, facilities and the operations dashboard. ORCA AI can&apos;t change anything.</p>
+            <p>
+              Answers come from ORCA&apos;s records: the schedule, employees, facilities and the operations dashboard. ORCA AI can&apos;t change anything. To import a schedule, attach an .xlsx
+              or a picture of it with the paperclip below.
+            </p>
             <div className="ai-suggestions">
               {SUGGESTIONS.map((s) => (
                 <button key={s} type="button" className="ai-suggestion" onClick={() => void ask(s, [])} disabled={!enabled || busy}>
@@ -171,10 +175,6 @@ export function AiWorkspace() {
                 </button>
               ))}
             </div>
-            <button type="button" className="ai-upload-card" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <strong>Upload a provider schedule</strong>
-              <span>An .xlsx workbook: a calendar grid or a list. You&apos;ll review every change before anything is added.</span>
-            </button>
           </div>
         ) : (
           messages.map((m) => <Message key={m.id} message={m} />)
@@ -186,7 +186,7 @@ export function AiWorkspace() {
         <input
           ref={fileRef}
           type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept={UPLOAD_ACCEPT}
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -194,7 +194,7 @@ export function AiWorkspace() {
             if (file) void attach(file);
           }}
         />
-        <button type="button" className="ai-attach" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Upload a schedule workbook" title="Upload a schedule workbook (.xlsx)">
+        <button type="button" className="ai-attach" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Upload a schedule" title="Upload a schedule: .xlsx, or a PNG / JPEG picture">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7" />
           </svg>

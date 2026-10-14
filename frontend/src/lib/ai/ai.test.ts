@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applicable, effectiveStatus, summaryLine, timeLabel } from "./imports";
+import { applicable, effectiveStatus, isPicture, summaryLine, timeLabel, uploadProblem } from "./imports";
 import { applyEvent, historyFor, sseParser } from "./stream";
 import type { ChatEvent, ChatMessage } from "./types";
 
@@ -34,7 +34,7 @@ describe("streaming", () => {
       assistant({ text: "", status: "error" }),
     ]);
     expect(history).toEqual([
-      { role: "user", content: 'Check this\n\n[Attached workbook "Oct.xlsx", draft import abc]' },
+      { role: "user", content: 'Check this\n\n[Attached schedule "Oct.xlsx", draft import abc]' },
       { role: "assistant", content: "It has 12 rows." },
     ]);
   });
@@ -49,5 +49,15 @@ describe("import review helpers", () => {
     expect(timeLabel({ timeBlock: "custom", startTime: "09:00", endTime: "11:00" })).toBe("09:00–11:00");
     expect(timeLabel({ timeBlock: "all_day", startTime: null, endTime: null })).toBe("All day");
     expect(summaryLine({ ready: 12, warning: 0, conflict: 1, duplicate: 3, needs_review: 2, skipped: 0, applied: 0, excluded: 0, total: 18 })).toBe("12 ready · 2 need review · 1 conflict · 3 already scheduled");
+  });
+});
+
+describe("uploads", () => {
+  it("takes workbooks and pictures, explains HEIC, and refuses anything else or anything over 4 MB", () => {
+    for (const name of ["Week.xlsx", "photo.JPG", "shot.jpeg", "scan.png", "x.webp"]) expect(uploadProblem({ name, size: 1000 })).toBeNull();
+    expect(uploadProblem({ name: "IMG_1234.HEIC", size: 1000 })).toMatch(/HEIC/);
+    expect(uploadProblem({ name: "notes.pdf", size: 1000 })).toMatch(/isn't an \.xlsx/);
+    expect(uploadProblem({ name: "big.png", size: 5 * 1024 * 1024 })).toMatch(/4 MB/);
+    expect([isPicture("a.png"), isPicture("a.xlsx")]).toEqual([true, false]);
   });
 });

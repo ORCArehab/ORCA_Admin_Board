@@ -1,6 +1,18 @@
-/** Schedule workbook imports (ORCA_Backend_API src/scheduleImport): types, labels and the browser client. */
+/** Schedule imports from workbooks and pictures (ORCA_Backend_API src/scheduleImport): types, labels and the browser client. */
 
-export const MAX_WORKBOOK_BYTES = 4 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+/** What can be uploaded: an .xlsx workbook, or a picture of a schedule (read by the vision model). */
+export const UPLOAD_NAME = /\.(xlsx|png|jpe?g|webp)$/i;
+export const UPLOAD_ACCEPT = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp";
+export const isPicture = (name: string) => /\.(png|jpe?g|webp)$/i.test(name);
+
+/** Why a file can't be uploaded, or null. */
+export function uploadProblem(file: { name: string; size: number }): string | null {
+  if (/\.(heic|heif)$/i.test(file.name)) return `"${file.name}" is an iPhone HEIC photo, which can't be read. Take a screenshot of it, or export it as JPEG, and upload that.`;
+  if (!UPLOAD_NAME.test(file.name)) return `"${file.name}" isn't an .xlsx workbook or a PNG, JPEG or WebP picture.`;
+  if (file.size > MAX_UPLOAD_BYTES) return `"${file.name}" is larger than 4 MB.`;
+  return null;
+}
 
 export type RowStatus = "ready" | "warning" | "conflict" | "duplicate" | "needs_review" | "skipped" | "applied";
 export type MatchStatus = "matched" | "suggested" | "ambiguous" | "unknown" | "manual";
@@ -20,8 +32,8 @@ export interface ImportRow {
   endTime: string | null;
   coveringLabel: string | null;
   notes: string | null;
-  staff: { id: string | null; name: string | null; match: MatchStatus; candidates: { id: string; name: string }[] };
-  facility: { id: string | null; name: string | null; match: MatchStatus; candidates: { id: string; name: string }[] };
+  staff: { id: string | null; name: string | null; match: MatchStatus; candidates: Candidate[] };
+  facility: { id: string | null; name: string | null; match: MatchStatus; candidates: Candidate[] };
   status: RowStatus;
   issues: { kind: string; message: string }[];
   existing: { id: string; label: string }[];
@@ -30,9 +42,27 @@ export interface ImportRow {
   appliedEntryId: string | null;
 }
 
+/** A possible match; `best` marks the import's best guess, with why. */
+export interface Candidate {
+  id: string;
+  name: string;
+  best?: boolean;
+  reason?: string;
+}
+
+/** A name in the file not matched yet, with the best guess (if there's a reasonable one) to confirm. */
+export interface Unmatched {
+  label: string;
+  rows: number;
+  status: MatchStatus;
+  suggestion?: { id: string; name: string; reason: string | null } | null;
+}
+
 export interface ImportSummary {
   id: string;
   fileName: string;
+  /** "image": transcribed from a picture by the vision model. */
+  source?: "workbook" | "image";
   status: "draft" | "applied" | "discarded";
   createdBy: string;
   createdAt: string;
@@ -40,8 +70,10 @@ export interface ImportSummary {
   sheets: { name: string; layout: string | null; items: number; reason: string | null }[];
   counts: Record<RowStatus | "excluded" | "total", number>;
   dateRange: { from: string | null; to: string | null };
-  unmatchedProviders: { label: string; rows: number; status: MatchStatus }[];
-  unmatchedFacilities: { label: string; rows: number; status: MatchStatus }[];
+  unmatchedProviders: Unmatched[];
+  unmatchedFacilities: Unmatched[];
+  /** Best guesses waiting for the admin to confirm. */
+  suggestions?: number;
 }
 
 export interface ImportDraft {
@@ -118,7 +150,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function uploadWorkbook(file: File): Promise<ImportDraft> {
+export function uploadSchedule(file: File): Promise<ImportDraft> {
   const form = new FormData();
   form.set("file", file, file.name);
   return request<ImportDraft>("/api/schedule-imports", { method: "POST", body: form });
@@ -131,4 +163,7 @@ export const applyImport = (id: string, confirmWarnings: boolean) =>
     method: "POST",
     body: JSON.stringify({ confirmWarnings }),
   });
+/** Confirms best guesses: every one, or just these labels. */
+export const confirmSuggestions = (id: string, labels?: { kind: "provider" | "facility"; label: string }[]) =>
+  request<ImportDraft>(`/api/schedule-imports/${encodeURIComponent(id)}/confirm-suggestions`, { method: "POST", body: JSON.stringify(labels ? { labels } : {}) });
 export const discardImport = (id: string) => request<{ discarded: boolean }>(`/api/schedule-imports/${encodeURIComponent(id)}/discard`, { method: "POST", body: "{}" });

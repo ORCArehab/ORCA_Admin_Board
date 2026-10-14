@@ -6,6 +6,7 @@ import { ErrorState, LoadingState } from "@/components/ui";
 import {
   applicable,
   applyImport,
+  confirmSuggestions,
   discardImport,
   effectiveStatus,
   getImport,
@@ -18,6 +19,7 @@ import {
   type ImportDraft,
   type ImportRow,
   type RowStatus,
+  type Unmatched,
 } from "@/lib/ai/imports";
 import { formatDate } from "@/lib/format";
 import { listFacilities, listStaff } from "@/lib/org/api";
@@ -39,7 +41,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 const ATTENTION = new Set(["needs_review", "conflict", "warning"]);
 
 /**
- * Review of an uploaded schedule workbook. Every proposed assignment keeps its sheet and cell.
+ * Review of an uploaded schedule (a workbook, or a picture transcribed by the vision model). Every proposed assignment keeps its sheet and cell.
  * Unmatched names are fixed once for all their rows; rows can be inspected, corrected,
  * accepted as read or excluded; Apply adds only approved rows, through the schedule's own checks.
  */
@@ -89,6 +91,8 @@ export function ImportReview({ id }: { id: string }) {
   const editable = summary.status === "draft";
   const counts = (key: Filter) => (key === "all" ? draft.rows.length : key === "attention" ? draft.rows.filter((r) => ATTENTION.has(effectiveStatus(r))).length : draft.rows.filter((r) => effectiveStatus(r) === key).length);
   const toApply = applicable(draft.rows);
+  const unmatchedCount = summary.unmatchedProviders.length + summary.unmatchedFacilities.length;
+  const suggestions = [...summary.unmatchedProviders, ...summary.unmatchedFacilities].filter((u) => u.suggestion).length;
 
   async function change(row: ImportRow, update: Parameters<typeof updateImportRow>[2], message?: string) {
     setBusy(true);
@@ -98,6 +102,20 @@ export function ImportReview({ id }: { id: string }) {
       if (message) setNotice({ tone: "ok", text: message });
     } catch (e) {
       setNotice({ tone: "warn", text: e instanceof Error ? e.message : "That change couldn't be saved." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmAll() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const next = await confirmSuggestions(id);
+      setDraft(next);
+      setNotice({ tone: "ok", text: `${suggestions} ${suggestions === 1 ? "match" : "matches"} confirmed.` });
+    } catch (e) {
+      setNotice({ tone: "warn", text: e instanceof Error ? e.message : "The matches couldn't be confirmed." });
     } finally {
       setBusy(false);
     }
@@ -163,6 +181,12 @@ export function ImportReview({ id }: { id: string }) {
         </p>
       )}
 
+      {summary.source === "image" && (
+        <p className="review-picture">
+          Read from a picture. Compare names, dates and times with the original before applying; cells that were hard to read, or rows that may have lost a cell, are marked Needs review.
+        </p>
+      )}
+
       <section className="review-sheets" aria-label="Sheets">
         {summary.sheets.map((s) => (
           <span key={s.name} className={`review-sheet${s.layout ? "" : " is-skipped"}`} title={s.reason ?? undefined}>
@@ -173,11 +197,24 @@ export function ImportReview({ id }: { id: string }) {
 
       {editable && (summary.unmatchedProviders.length > 0 || summary.unmatchedFacilities.length > 0) && (
         <section className="review-unmatched" aria-labelledby="unmatched-title">
-          <h2 id="unmatched-title">Names to match</h2>
-          <p className="muted">Choose who or where each name in the workbook is. It applies to every row with that name.</p>
+          <div className="review-unmatched-head">
+            <div>
+              <h2 id="unmatched-title">Names to match</h2>
+              <p className="muted">
+                {suggestions > 0
+                  ? `ORCA AI suggested a match for ${suggestions} of ${unmatchedCount} ${unmatchedCount === 1 ? "name" : "names"}. Confirm them, or change any that are wrong first.`
+                  : "Choose who or where each name in the file is. It applies to every row with that name."}
+              </p>
+            </div>
+            {suggestions > 0 && (
+              <button type="button" className="button button-primary-sm" onClick={confirmAll} disabled={busy}>
+                {suggestions === 1 ? "Confirm suggestion" : `Confirm all ${suggestions} suggestions`}
+              </button>
+            )}
+          </div>
           <div className="review-unmatched-grid">
             {summary.unmatchedProviders.map((u) => (
-              <LabelMatcher key={`p-${u.label}`} kind="provider" label={u.label} rows={u.rows} status={u.status} suggested={u.status === "suggested" ? draft.rows.find((r) => r.providerLabel === u.label)?.staff.candidates[0]?.id : undefined} options={staff.map((s) => ({ id: s.id, name: s.displayName }))} disabled={busy}
+              <LabelMatcher key={`p-${u.label}`} kind="provider" item={u} options={staff.map((s) => ({ id: s.id, name: s.displayName }))} disabled={busy}
                 onPick={(pick) => {
                   const row = draft.rows.find((r) => r.providerLabel === u.label && r.status !== "applied");
                   if (row) void change(row, { staffId: pick, sameLabel: true }, `"${u.label}" matched for ${u.rows} ${u.rows === 1 ? "row" : "rows"}.`);
@@ -185,7 +222,7 @@ export function ImportReview({ id }: { id: string }) {
               />
             ))}
             {summary.unmatchedFacilities.map((u) => (
-              <LabelMatcher key={`f-${u.label}`} kind="facility" label={u.label} rows={u.rows} status={u.status} suggested={u.status === "suggested" ? draft.rows.find((r) => r.facilityLabel === u.label)?.facility.candidates[0]?.id : undefined} options={facilities.map((f) => ({ id: f.id, name: f.name }))} disabled={busy}
+              <LabelMatcher key={`f-${u.label}`} kind="facility" item={u} options={facilities.map((f) => ({ id: f.id, name: f.name }))} disabled={busy}
                 onPick={(pick) => {
                   const row = draft.rows.find((r) => r.facilityLabel === u.label && r.status !== "applied");
                   if (row) void change(row, { facilityId: pick, sameLabel: true }, `"${u.label}" matched for ${u.rows} ${u.rows === 1 ? "row" : "rows"}.`);
@@ -209,7 +246,7 @@ export function ImportReview({ id }: { id: string }) {
       ) : (
         <ul className="review-rows">
           {rows.map((r) => (
-            <RowItem key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} staff={staff} facilities={facilities} onChange={change} />
+            <RowItem key={r.id} row={r} picture={summary.source === "image"} oneSheet={summary.sheets.filter((x) => x.layout).length <= 1} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} editable={editable} busy={busy} staff={staff} facilities={facilities} onChange={change} />
           ))}
         </ul>
       )}
@@ -259,16 +296,24 @@ export function ImportReview({ id }: { id: string }) {
   );
 }
 
-function LabelMatcher({ kind, label, rows, status, suggested, options, disabled, onPick }: { kind: "provider" | "facility"; label: string; rows: number; status: string; suggested?: string; options: { id: string; name: string }[]; disabled: boolean; onPick: (id: string) => void }) {
-  // A probable match is preselected; it's only saved when the admin presses Match.
-  const [value, setValue] = useState(suggested ?? "");
+function LabelMatcher({ kind, item, options, disabled, onPick }: { kind: "provider" | "facility"; item: Unmatched; options: { id: string; name: string }[]; disabled: boolean; onPick: (id: string) => void }) {
+  // The best guess is preselected; nothing is saved until the admin confirms (here or with Confirm all).
+  const [value, setValue] = useState(item.suggestion?.id ?? "");
+  const confirming = !!item.suggestion && value === item.suggestion.id;
   return (
-    <div className="review-label">
+    <div className={`review-label${item.suggestion ? " has-suggestion" : ""}`}>
       <span className="review-label-name">
-        &ldquo;{label}&rdquo; <span className="muted">· {rows} {rows === 1 ? "row" : "rows"} · {status === "ambiguous" ? "more than one match" : status === "suggested" ? "probable match" : "not found"}</span>
+        &ldquo;{item.label}&rdquo; <span className="muted">· {item.rows} {item.rows === 1 ? "row" : "rows"}</span>
+        <span className="review-label-why">
+          {item.suggestion
+            ? `Suggested: ${item.suggestion.name}${item.suggestion.reason ? ` (${item.suggestion.reason})` : ""}`
+            : item.status === "ambiguous"
+              ? "More than one possible match: choose one."
+              : `No ${kind} with a similar name. Choose one, or exclude these rows.`}
+        </span>
       </span>
       <span className="review-label-pick">
-        <select aria-label={`Match for ${label}`} value={value} onChange={(e) => setValue(e.target.value)} disabled={disabled}>
+        <select aria-label={`Match for ${item.label}`} value={value} onChange={(e) => setValue(e.target.value)} disabled={disabled}>
           <option value="">Choose a {kind}…</option>
           {options.map((o) => (
             <option key={o.id} value={o.id}>
@@ -277,7 +322,7 @@ function LabelMatcher({ kind, label, rows, status, suggested, options, disabled,
           ))}
         </select>
         <button type="button" className="button" disabled={disabled || !value} onClick={() => onPick(value)}>
-          Match
+          {confirming ? "Confirm" : "Match"}
         </button>
       </span>
     </div>
@@ -286,6 +331,8 @@ function LabelMatcher({ kind, label, rows, status, suggested, options, disabled,
 
 function RowItem({
   row: r,
+  picture,
+  oneSheet,
   open,
   onToggle,
   editable,
@@ -295,6 +342,9 @@ function RowItem({
   onChange,
 }: {
   row: ImportRow;
+  picture: boolean;
+  /** With one sheet read, the cell alone says where a row came from. */
+  oneSheet: boolean;
   open: boolean;
   onToggle: () => void;
   editable: boolean;
@@ -311,8 +361,8 @@ function RowItem({
   return (
     <li className={`review-row status-${status}`}>
       <button type="button" className="review-row-head" onClick={onToggle} aria-expanded={open}>
-        <span className="review-where">
-          {r.sheet}!{r.cellRef}
+        <span className="review-where" title={`${r.sheet}!${r.cellRef}`}>
+          {oneSheet ? r.cellRef : `${r.sheet}!${r.cellRef}`}
         </span>
         <span className="review-date">{r.date ? formatDate(r.date) : "—"}</span>
         <span className={`review-who match-${r.staff.match}`}>{who}</span>
@@ -325,7 +375,7 @@ function RowItem({
       {open && (
         <div className="review-detail">
           <dl>
-            <dt>In the workbook</dt>
+            <dt>{picture ? "In the picture" : "In the workbook"}</dt>
             <dd>
               <code>{r.sourceText}</code>
             </dd>
@@ -363,13 +413,13 @@ function RowItem({
               {(r.staff.match === "suggested" || r.staff.match === "ambiguous") &&
                 r.staff.candidates.map((c) => (
                   <button key={c.id} type="button" className="button" disabled={busy} onClick={() => onChange(r, { staffId: c.id }, `Matched to ${c.name}.`)}>
-                    Provider: {c.name}
+                    {c.best ? "Suggested provider" : "Provider"}: {c.name}
                   </button>
                 ))}
               {(r.facility.match === "suggested" || r.facility.match === "ambiguous") &&
                 r.facility.candidates.map((c) => (
                   <button key={c.id} type="button" className="button" disabled={busy} onClick={() => onChange(r, { facilityId: c.id }, `Matched to ${c.name}.`)}>
-                    Facility: {c.name}
+                    {c.best ? "Suggested facility" : "Facility"}: {c.name}
                   </button>
                 ))}
               <Picker label="Provider" value={r.staff.id} options={staff.map((s) => ({ id: s.id, name: s.displayName }))} disabled={busy} onPick={(v) => onChange(r, { staffId: v })} />
