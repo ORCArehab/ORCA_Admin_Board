@@ -837,9 +837,28 @@ a.info-primary { color: var(--accent); }
 .review-filter { padding: 5px 10px; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--text-muted); cursor: pointer; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
 .review-filter:hover { color: var(--text); }
 .review-filter[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft); }
-.review-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.review-cells { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.review-cell { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.review-cell-head { display: grid; grid-template-columns: 70px 110px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 14px; background: var(--surface-muted); border-bottom: 1px solid var(--border); font-size: 13px; }
+.review-cell-source { font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-cell-count { font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+.review-rows { list-style: none; margin: 0; padding: 0; }
 .review-rows > li + li { border-top: 1px solid var(--border); }
-.review-row-head { width: 100%; display: grid; grid-template-columns: 90px 110px minmax(0, 1.1fr) minmax(0, 1.6fr) auto; gap: 12px; align-items: center; padding: 9px 14px; background: none; border: 0; text-align: left; cursor: pointer; font-size: 13px; }
+.review-row.is-target { box-shadow: inset 3px 0 0 var(--accent); background: var(--accent-soft); transition: background 0.6s; }
+.review-conflicts { display: grid; gap: 8px; }
+.review-conflict { border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.review-conflict.tone-conflict { border-color: var(--caution); background: var(--caution-soft); }
+.review-conflict.tone-warning { border-color: var(--caution-border); }
+.review-conflict-text { margin: 0; }
+.review-conflict-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: stretch; }
+.review-conflict-side { display: grid; gap: 1px; align-content: start; padding: 8px 10px; border-radius: 6px; background: var(--bg); min-width: 0; }
+.review-conflict-side small { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+.review-conflict-side span { color: var(--text-muted); font-size: 12px; }
+.review-conflict-side code { font-family: var(--mono); font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
+.review-conflict-vs { align-self: center; color: var(--caution); font-weight: 700; }
+.tone-related .review-conflict-vs, .tone-warning .review-conflict-vs { color: var(--text-faint); }
+.review-conflict-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-row-head { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) auto; gap: 12px; align-items: center; padding: 9px 14px; background: none; border: 0; text-align: left; cursor: pointer; font-size: 13px; }
 .review-row-head:hover { background: var(--surface-muted); }
 .review-where { font-family: var(--mono); font-size: 11px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .review-date { font-variant-numeric: tabular-nums; color: var(--text-muted); }
@@ -881,7 +900,10 @@ a.info-primary { color: var(--accent); }
 }
 @media (max-width: 900px) {
   .review-row-head { grid-template-columns: minmax(0, 1fr) auto; }
-  .review-where, .review-date { grid-column: 1 / -1; }
+  .review-cell-head { grid-template-columns: auto auto minmax(0, 1fr); }
+  .review-cell-count { grid-column: 1 / -1; }
+  .review-conflict-pair { grid-template-columns: 1fr; }
+  .review-conflict-vs { display: none; }
   .review-detail dl, .review-compare, .review-label { grid-template-columns: 1fr; }
   .ai-bubble { max-width: 90%; }
   .review-unmatched-head { flex-direction: column; }

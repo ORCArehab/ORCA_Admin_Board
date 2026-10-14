@@ -35,11 +35,73 @@ export interface ImportRow {
   staff: { id: string | null; name: string | null; match: MatchStatus; candidates: Candidate[] };
   facility: { id: string | null; name: string | null; match: MatchStatus; candidates: Candidate[] };
   status: RowStatus;
-  issues: { kind: string; message: string }[];
+  issues: RowIssue[];
   existing: { id: string; label: string }[];
   excluded: boolean;
   accepted: boolean;
   appliedEntryId: string | null;
+}
+
+/** The other assignment a conflict or warning is about: another row in this file, or an entry already on the schedule. */
+export interface IssueOther {
+  source: "workbook" | "schedule";
+  rowId?: string;
+  entryId?: string;
+  sheet?: string;
+  cellRef?: string;
+  sourceText?: string;
+  /** From the same cell as this row. */
+  sameCell?: boolean;
+  provider: string | null;
+  facility: string | null;
+  type: string;
+  date: string;
+  time: string;
+  label: string;
+}
+
+/** Why a row has its status. "related": another row in this file conflicts with this one. */
+export interface RowIssue {
+  kind: string;
+  message: string;
+  code?: string;
+  other?: IssueOther;
+}
+
+/** The assignments read from one cell, in the order they were written. */
+export interface CellGroup {
+  key: string;
+  sheet: string;
+  cellRef: string;
+  date: string | null;
+  sourceText: string;
+  rows: ImportRow[];
+}
+
+export function groupByCell(rows: ImportRow[]): CellGroup[] {
+  const groups = new Map<string, CellGroup>();
+  for (const r of rows) {
+    const key = `${r.sheet}!${r.cellRef}`;
+    const g = groups.get(key) ?? { key, sheet: r.sheet, cellRef: r.cellRef, date: r.date, sourceText: r.sourceText, rows: [] };
+    g.rows.push(r);
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
+
+const SPANS: Record<string, [number, number]> = { am: [8 * 60, 12 * 60], pm: [13 * 60, 17 * 60], all_day: [8 * 60, 17 * 60] };
+const hm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+/**
+ * Consecutive times for places written in one cell under one block ("KW & BV (AM)"): the block
+ * divided evenly, in the order written, to the quarter hour. Only offered to the admin; never applied on its own.
+ */
+export function splitBlock(block: string, count: number): { start: string; end: string }[] | null {
+  const span = SPANS[block];
+  if (!span || count < 2) return null;
+  const step = Math.floor((span[1] - span[0]) / count / 15) * 15;
+  if (step < 15) return null;
+  return Array.from({ length: count }, (_, i) => ({ start: hm(span[0] + i * step), end: hm(i === count - 1 ? span[1] : span[0] + (i + 1) * step) }));
 }
 
 /** A possible match; `best` marks the import's best guess, with why. */

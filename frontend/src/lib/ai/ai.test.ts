@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applicable, effectiveStatus, isPicture, summaryLine, timeLabel, uploadProblem } from "./imports";
+import { applicable, effectiveStatus, groupByCell, isPicture, splitBlock, summaryLine, timeLabel, uploadProblem, type ImportRow } from "./imports";
 import { applyEvent, historyFor, sseParser } from "./stream";
 import type { ChatEvent, ChatMessage } from "./types";
 
@@ -59,5 +59,23 @@ describe("uploads", () => {
     expect(uploadProblem({ name: "notes.pdf", size: 1000 })).toMatch(/isn't an \.xlsx/);
     expect(uploadProblem({ name: "big.png", size: 5 * 1024 * 1024 })).toMatch(/4 MB/);
     expect([isPicture("a.png"), isPicture("a.xlsx")]).toEqual([true, false]);
+  });
+});
+
+describe("cells", () => {
+  const row = (id: string, cellRef: string, sheet = "S") => ({ id, sheet, cellRef, date: "2027-01-13", sourceText: `text ${cellRef}` }) as unknown as ImportRow;
+  it("groups the assignments read from one cell, in the order written", () => {
+    const groups = groupByCell([row("1", "K2"), row("2", "K2"), row("3", "B2"), row("4", "K2", "Other")]);
+    expect(groups.map((g) => [g.key, g.rows.map((r) => r.id)])).toEqual([
+      ["S!K2", ["1", "2"]],
+      ["S!B2", ["3"]],
+      ["Other!K2", ["4"]],
+    ]);
+  });
+  it("splits a block between the places in a cell, to the quarter hour, only when asked", () => {
+    expect(splitBlock("am", 2)).toEqual([{ start: "08:00", end: "10:00" }, { start: "10:00", end: "12:00" }]);
+    expect(splitBlock("pm", 3)).toEqual([{ start: "13:00", end: "14:15" }, { start: "14:15", end: "15:30" }, { start: "15:30", end: "17:00" }]);
+    expect(splitBlock("custom", 2)).toBeNull();
+    expect(splitBlock("am", 1)).toBeNull();
   });
 });
