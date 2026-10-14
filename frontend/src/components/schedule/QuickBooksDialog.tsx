@@ -18,6 +18,7 @@ import {
   type QuickBooksSendResult,
 } from "@/lib/schedule/quickbooks";
 import { weekLabel } from "@/lib/schedule/week";
+import { SearchPicker } from "@/components/SearchPicker";
 
 /** An API failure as dialog state: "connect first" codes get the Connect panel. */
 const failed = (error: unknown, fallback: string): State =>
@@ -287,6 +288,7 @@ function MatchList({
   const [chosen, setChosen] = useState<Record<string, string>>(() => Object.fromEntries(rows.filter((r) => r.suggestion).map((r) => [r.id, String(r.suggestion!.id)])));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pickerOptions = options.map((o) => ({ id: String(o.id), label: o.label }));
 
   async function save(recordId: string) {
     const value = Number(chosen[recordId]);
@@ -314,14 +316,15 @@ function MatchList({
               {row.suggestion && <span className="quickbooks-match-why">Suggested: {row.suggestion.name} ({row.suggestion.reason})</span>}
             </span>
             <span className="quickbooks-match-pick">
-              <select aria-label={`QuickBooks Time match for ${row.name}`} value={chosen[row.id] ?? ""} onChange={(e) => setChosen((c) => ({ ...c, [row.id]: e.target.value }))} disabled={disabled || busy !== null}>
-                <option value="">Choose…</option>
-                {options.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <SearchPicker
+                ariaLabel={`QuickBooks Time match for ${row.name}`}
+                value={chosen[row.id] ?? null}
+                valueLabel={options.find((o) => String(o.id) === chosen[row.id])?.label}
+                placeholder={kind === "staff" ? "Search QuickBooks Time users…" : "Search jobcodes…"}
+                load={() => Promise.resolve(pickerOptions)}
+                disabled={disabled || busy !== null}
+                onChange={(o) => setChosen((c) => ({ ...c, [row.id]: o.id }))}
+              />
               <button type="button" className="button" onClick={() => save(row.id)} disabled={disabled || busy !== null || !chosen[row.id]}>
                 {busy === row.id ? "Saving…" : row.suggestion && chosen[row.id] === String(row.suggestion.id) ? "Confirm" : "Match"}
               </button>
