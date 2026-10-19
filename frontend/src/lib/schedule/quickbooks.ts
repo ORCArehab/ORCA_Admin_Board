@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/api";
 
-/** Browser client for /api/quickbooks-time/*: sending a week of the schedule to QuickBooks Time. */
+/** Browser client for /api/quickbooks-time/*: sending the schedule to QuickBooks Time, or pulling it from there. */
 
 export interface QuickBooksSuggestion {
   id: number;
@@ -35,6 +35,33 @@ export interface QuickBooksSendResult {
   publishedToPortal?: number;
 }
 
+/** Where the schedule is kept: "quickbooks_time" (pulled, read-only in ORCA) or "orca" (edited here, sent there). */
+export type ScheduleSource = "quickbooks_time" | "orca";
+
+export interface QuickBooksStatus {
+  configured: boolean;
+  connected: boolean;
+  scheduleSource: ScheduleSource;
+  lastPull: { at: string; by: string; from: string; to: string } | null;
+}
+
+/** What an Update did, and what in QuickBooks Time couldn't be placed (with best guesses to link). */
+export interface PullResult {
+  from: string;
+  to: string;
+  events: number;
+  created: number;
+  updated: number;
+  removed: number;
+  unchanged: number;
+  drafts: number;
+  published: string[];
+  unmatchedUsers: { id: number; name: string; events: number; suggestion: { id: string; name: string } | null }[];
+  unmatchedJobcodes: { id: number; name: string; events: number; suggestion: { id: string; name: string } | null }[];
+  noJobcode: number;
+  overlaps: { staff: string; date: string; message: string }[];
+}
+
 async function request<T>(path: string, method: string, body: unknown): Promise<T> {
   let res: Response;
   try {
@@ -62,6 +89,27 @@ export function connectOutcome(value: string | null): string | null {
   if (value === "declined") return "QuickBooks Time wasn't connected: access wasn't approved.";
   if (value === "failed") return "QuickBooks Time couldn't be connected. Try connecting again.";
   return null;
+}
+
+export async function fetchQuickBooksStatus(): Promise<QuickBooksStatus | null> {
+  try {
+    const res = await fetch("/api/quickbooks-time/status", { credentials: "same-origin", cache: "no-store", headers: { accept: "application/json" } });
+    return res.ok ? ((await res.json()) as QuickBooksStatus) : null;
+  } catch {
+    return null;
+  }
+}
+/** Update: pulls QuickBooks Time's schedule from this week for five weeks. */
+export const pullFromQuickBooks = (weekStart: string) => request<PullResult>("/api/quickbooks-time/pull", "POST", { weekStart });
+
+/** An Update's result in plain lines. */
+export function pullLines(r: PullResult): string[] {
+  const changes = r.created + r.updated + r.removed;
+  return [
+    changes === 0 ? `Already up to date: ${r.events} ${r.events === 1 ? "event" : "events"} in QuickBooks Time.` : `${r.created} added, ${r.updated} changed, ${r.removed} removed (${r.events} ${r.events === 1 ? "event" : "events"} in QuickBooks Time).`,
+    r.drafts ? `${r.drafts} ${r.drafts === 1 ? "is" : "are"} still a draft in QuickBooks Time: on the board, but providers won't see ${r.drafts === 1 ? "it" : "them"} until published there.` : "",
+    `Providers now see these ${r.published.length} weeks in the portal as published in QuickBooks Time.`,
+  ].filter(Boolean);
 }
 
 export const previewQuickBooks = (weekStart: string) => request<QuickBooksPreview>("/api/quickbooks-time/preview", "POST", { weekStart });

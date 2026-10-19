@@ -29,6 +29,7 @@ import { formatDate } from "@/lib/format";
 import { SearchPicker } from "@/components/SearchPicker";
 import { listFacilities, listStaff } from "@/lib/org/api";
 import type { PickerOption } from "@/lib/search";
+import { fetchQuickBooksStatus } from "@/lib/schedule/quickbooks";
 
 /** Pickers search current employees and facilities that aren't archived; loaded on first use, once per page. */
 type Loaders = { staff: () => Promise<PickerOption[]>; facilities: () => Promise<PickerOption[]> };
@@ -77,6 +78,11 @@ export function ImportReview({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
   const [includeWarnings, setIncludeWarnings] = useState(false);
   const [loaders] = useState(makeLoaders);
+  // With QuickBooks Time as the schedule of record, ORCA doesn't add entries itself: review only.
+  const [fromQbt, setFromQbt] = useState(false);
+  useEffect(() => {
+    void fetchQuickBooksStatus().then((s) => setFromQbt(s?.scheduleSource === "quickbooks_time"));
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -346,15 +352,19 @@ export function ImportReview({ id }: { id: string }) {
       {editable && (
         <footer className="review-actions">
           <span className="muted">
-            {toApply.ready} ready{toApply.warning ? `, ${toApply.warning} with warnings` : ""}. Excluded, unmatched, conflicting and already-scheduled rows are never added.
+            {fromQbt
+              ? "The schedule is kept in QuickBooks Time, so nothing is added from here: use this review to check the file, then make the changes on QuickBooks Time's schedule calendar and press Update on the Schedule page."
+              : `${toApply.ready} ready${toApply.warning ? `, ${toApply.warning} with warnings` : ""}. Excluded, unmatched, conflicting and already-scheduled rows are never added.`}
           </span>
           <span className="review-actions-main">
             <button type="button" className="button" onClick={discard} disabled={busy}>
               Discard
             </button>
-            <button type="button" className="button button-primary-sm" onClick={() => setConfirming(true)} disabled={busy || toApply.ready + toApply.warning === 0}>
-              Apply approved changes
-            </button>
+            {!fromQbt && (
+              <button type="button" className="button button-primary-sm" onClick={() => setConfirming(true)} disabled={busy || toApply.ready + toApply.warning === 0}>
+                Apply approved changes
+              </button>
+            )}
           </span>
         </footer>
       )}

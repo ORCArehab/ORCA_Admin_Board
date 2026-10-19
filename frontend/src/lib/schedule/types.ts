@@ -24,6 +24,8 @@ export interface Assignment {
   endTime: string | null;
   notes: string | null;
   source?: string;
+  /** Still a draft in QuickBooks Time: on the board, not on the portal. */
+  draft?: boolean;
   updatedBy?: string;
   updatedAt?: string;
 }
