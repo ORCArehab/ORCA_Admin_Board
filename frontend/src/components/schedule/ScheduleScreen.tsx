@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
-import { fetchQuickBooksStatus, type QuickBooksStatus } from "@/lib/schedule/quickbooks";
+import { fetchQuickBooksStatus, publishDraftsInQuickBooks, type QuickBooksStatus } from "@/lib/schedule/quickbooks";
 import { PublishStatus } from "./PublishStatus";
 import { PullDialog } from "./PullDialog";
 import { QuickBooksDialog } from "./QuickBooksDialog";
@@ -69,7 +69,7 @@ export function ScheduleScreen({
   // QuickBooks Time as the schedule of record: the board mirrors it (Update), and is read-only here.
   const [qbt, setQbt] = useState<QuickBooksStatus | null>(null);
   const [pulling, setPulling] = useState(false);
-  const [viewing, setViewing] = useState<Assignment | null>(null);
+  const [publishing, setPublishing] = useState(false);
   /** Bumped when the send dialog closes, so the "what providers see" line re-checks. */
   const [publishRevision, setPublishRevision] = useState(0);
   const board = useScheduleBoard(weekStart);
@@ -203,6 +203,21 @@ export function ScheduleScreen({
   const providers = data ? data.staff.filter((s) => isProvider(s) && s.employmentStatus !== "separated").sort((a, b) => a.displayName.localeCompare(b.displayName)) : [];
   const facilities = data ? [...data.facilities].sort((a, b) => facilityShort(a).localeCompare(facilityShort(b))) : [];
   const weekEmpty = !!data && data.assignments.length === 0;
+  const drafts = data ? data.assignments.filter((a) => a.draft).length : 0;
+
+  async function publishDrafts() {
+    if (!window.confirm(`Publish ${drafts} ${drafts === 1 ? "draft" : "drafts"} for ${weekLabel(weekStart)} in QuickBooks Time? Providers will see ${drafts === 1 ? "it" : "them"} in the portal.`)) return;
+    setPublishing(true);
+    try {
+      const result = await publishDraftsInQuickBooks(weekStart);
+      setNotice(`Published ${result.published} in QuickBooks Time; providers see ${result.published === 1 ? "it" : "them"} now.${result.failed.length ? ` QuickBooks Time refused ${result.failed.length}: ${result.failed.map((f) => f.message).join(" ")}` : ""}`);
+      board.reload();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "The drafts couldn't be published.");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   return (
     <div className="schedule">
@@ -212,8 +227,16 @@ export function ScheduleScreen({
         aside={
           fromQbt ? (
             <span className="schedule-header-actions">
-              <button type="button" className="button button-primary-sm" onClick={() => setPulling(true)}>
+              <button type="button" className="button" onClick={() => setPulling(true)}>
                 Update from QuickBooks Time
+              </button>
+              {drafts > 0 && (
+                <button type="button" className="button" onClick={publishDrafts} disabled={publishing}>
+                  {publishing ? "Publishing…" : `Publish ${drafts} ${drafts === 1 ? "draft" : "drafts"}`}
+                </button>
+              )}
+              <button type="button" className="button button-primary-sm" onClick={() => setEditing({ existing: null, prefill: { date: today >= weekStart && today <= addDays(weekStart, 6) ? today : weekStart } })} disabled={!data}>
+                + Add entry
               </button>
             </span>
           ) : (
@@ -294,7 +317,8 @@ export function ScheduleScreen({
 
       {fromQbt && (
         <p className="qbt-source" role="note">
-          This schedule comes from QuickBooks Time. Make changes on QuickBooks Time&apos;s schedule calendar, then press <strong>Update from QuickBooks Time</strong>.
+          QuickBooks Time is the schedule of record. Changes made here are saved straight to QuickBooks Time (as drafts unless published); changes made in QuickBooks Time come in with{" "}
+          <strong>Update from QuickBooks Time</strong> or overnight.
           {qbt?.lastPull ? ` Last updated ${formatDateTime(qbt.lastPull.at, SCHEDULE_TIMEZONE)} by ${qbt.lastPull.by}.` : " Not updated yet."}
         </p>
       )}
@@ -346,11 +370,10 @@ export function ScheduleScreen({
             today={today}
             view={view}
             filters={filters}
-            readOnly={fromQbt || !qbt}
+            readOnly={!qbt}
             onEdit={(existing) => {
               closeQuick(false);
-              if (fromQbt) setViewing(existing);
-              else if (qbt) setEditing({ existing, prefill: null });
+              if (qbt) setEditing({ existing, prefill: null });
             }}
             onQuickAdd={(prefill, anchor) => {
               setDropIssue(null);
@@ -375,7 +398,7 @@ export function ScheduleScreen({
             <span className="section-note">
               {data.assignments.length} {data.assignments.length === 1 ? "entry" : "entries"} this week. Names and facilities come from the organization records.
             </span>
-            {!fromQbt && qbt && (
+            {qbt && (
               <button type="button" className="button" onClick={copyPreviousWeek} disabled={copying}>
                 {copying ? "Copying…" : weekEmpty ? "Copy previous week" : "Copy previous week into empty days"}
               </button>
@@ -420,6 +443,7 @@ export function ScheduleScreen({
           prefill={editing.prefill}
           onClose={() => setEditing(null)}
           onSaved={saved}
+          quickbooksTime={fromQbt}
           onDeleted={() => {
             setEditing(null);
             setNotice("Entry deleted.");
@@ -437,7 +461,6 @@ export function ScheduleScreen({
           }}
         />
       )}
-      {viewing && data && <EntryDetails entry={viewing} data={data} onClose={() => setViewing(null)} />}
       {sendingToQuickBooks && <QuickBooksDialog
           weekStart={weekStart}
           onClose={() => {
@@ -445,36 +468,6 @@ export function ScheduleScreen({
             setPublishRevision((n) => n + 1);
           }}
         />}
-    </div>
-  );
-}
-
-/** An entry on a board mirrored from QuickBooks Time: what it is, and where to change it. */
-function EntryDetails({ entry: a, data, onClose }: { entry: Assignment; data: ScheduleBoardData; onClose: () => void }) {
-  const person = data.staff.find((s) => s.id === a.staffId)?.displayName ?? "Unknown provider";
-  const facility = a.facilityId ? data.facilities.find((f) => f.id === a.facilityId) : undefined;
-  const covering = a.coveringStaffId ? data.staff.find((s) => s.id === a.coveringStaffId)?.displayName : null;
-  const day = dayHeading(a.date);
-  const time = a.timeBlock === "custom" ? `${a.startTime}–${a.endTime}` : a.timeBlock === "all_day" ? "All day" : a.timeBlock === "am" ? "AM (8–12)" : "PM (1–5)";
-  return (
-    <div className="review-confirm" role="dialog" aria-modal="true" aria-labelledby="entry-title" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="review-confirm-card">
-        <h2 id="entry-title">{person}</h2>
-        <p>
-          {facility ? facility.name : TYPE_LABELS[a.type]}
-          {a.type === "coverage" ? ` · coverage${covering ? ` for ${covering}` : ""}` : ""}
-        </p>
-        <p className="muted">
-          {day.weekday} {day.day} · {time}
-        </p>
-        {a.notes && <p>{a.notes}</p>}
-        <p className="muted">{a.draft ? "A draft in QuickBooks Time: providers don't see it until it's published there." : "Published in QuickBooks Time: the provider sees it in the portal."} To change it, edit the event on QuickBooks Time&apos;s schedule calendar, then press Update.</p>
-        <div className="review-confirm-actions">
-          <button type="button" className="button button-primary-sm" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

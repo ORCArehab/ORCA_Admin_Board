@@ -78,7 +78,7 @@ export function ImportReview({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
   const [includeWarnings, setIncludeWarnings] = useState(false);
   const [loaders] = useState(makeLoaders);
-  // With QuickBooks Time as the schedule of record, ORCA doesn't add entries itself: review only.
+  // With QuickBooks Time as the schedule of record, applied entries go there as drafts.
   const [fromQbt, setFromQbt] = useState(false);
   useEffect(() => {
     void fetchQuickBooksStatus().then((s) => setFromQbt(s?.scheduleSource === "quickbooks_time"));
@@ -352,19 +352,16 @@ export function ImportReview({ id }: { id: string }) {
       {editable && (
         <footer className="review-actions">
           <span className="muted">
-            {fromQbt
-              ? "The schedule is kept in QuickBooks Time, so nothing is added from here: use this review to check the file, then make the changes on QuickBooks Time's schedule calendar and press Update on the Schedule page."
-              : `${toApply.ready} ready${toApply.warning ? `, ${toApply.warning} with warnings` : ""}. Excluded, unmatched, conflicting and already-scheduled rows are never added.`}
+            {toApply.ready} ready{toApply.warning ? `, ${toApply.warning} with warnings` : ""}. Excluded, unmatched, conflicting and already-scheduled rows are never added.
+            {fromQbt ? " Applied entries go to QuickBooks Time as drafts; publish them from the Schedule page." : ""}
           </span>
           <span className="review-actions-main">
             <button type="button" className="button" onClick={discard} disabled={busy}>
               Discard
             </button>
-            {!fromQbt && (
-              <button type="button" className="button button-primary-sm" onClick={() => setConfirming(true)} disabled={busy || toApply.ready + toApply.warning === 0}>
-                Apply approved changes
-              </button>
-            )}
+            <button type="button" className="button button-primary-sm" onClick={() => setConfirming(true)} disabled={busy || toApply.ready + toApply.warning === 0}>
+              Apply approved changes
+            </button>
           </span>
         </footer>
       )}
