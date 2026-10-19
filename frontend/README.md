@@ -96,6 +96,18 @@ The provider schedule lives in the ORCA API (`schedule_assignments`, `/v1/schedu
 - **Position and Access are separate.** Position is someone's job (the staff record's category). Access is the roles on their sign-in account, which decide what they can see in ORCA apps. Admins set Access, and can turn an account off, on the employee's profile. There's no separate People & Roles page any more: `/people` redirects to **Employees → Accounts without a record**. That admin-only view lists sign-in accounts that aren't linked to any employee. There an admin can create the employee record (prefilled; saving it links the account and keeps its roles), edit the account's roles, or turn the account off.
 - **Facility assignments** show on both sides: an employee's facilities on their profile, and a facility's assigned staff on its page. Anyone allowed to write a type gets **+ Assign** and **End** for it, matching the ORCA API: rounding provider and liaison are HIM or Admin; scribe coverage, credentialed and other are HR or Admin (`assignmentTypesFor` in `lib/access.ts`). Ending an assignment keeps it as history. Assignments imported from a master spreadsheet can't be ended here; the API says so.
 
+## QuickBooks Time as the schedule of record
+
+When the ORCA API runs with `SCHEDULE_SOURCE=quickbooks_time`, the Schedule page mirrors
+QuickBooks Time: changes are made on QuickBooks Time's schedule calendar, and **Update from
+QuickBooks Time** pulls them (this week and the four after; the API also pulls nightly). The board
+is read-only (no adding, moving, copying or editing; an entry opens its details), entries still a
+draft in QuickBooks Time are tagged Draft, and a line says providers see the published events only.
+The Update dialog says what changed and lists QuickBooks Time users or jobcodes ORCA can't place,
+with a searchable picker (best guess preselected) to link each; Update again brings their events in.
+ORCA AI's schedule imports are review-only in this mode. (`components/schedule/PullDialog.tsx`,
+`/api/quickbooks-time/status`, `/api/quickbooks-time/pull`.) Otherwise the page works as below.
+
 ## Send to QuickBooks Time
 
 The schedule board's **Send to QuickBooks Time** button (admins) opens a dialog for the week on

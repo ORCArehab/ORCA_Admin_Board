@@ -920,3 +920,9 @@ a.info-primary { color: var(--accent); }
 .search-picker-option.is-active { background: var(--accent-soft); color: var(--accent); }
 .search-picker-detail { font-size: 11px; color: var(--text-faint); }
 .search-picker-empty { padding: 6px 9px; font-size: 13px; color: var(--text-faint); }
+
+/* QuickBooks Time as the schedule of record. */
+.qbt-source { margin: 0 0 12px; padding: 9px 14px; border-radius: 6px; background: var(--accent-soft); color: var(--text); font-size: 13px; }
+.chip.is-draft { border-style: dashed; opacity: 0.85; }
+.chip-draft { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--caution); margin-left: 4px; }
+.quickbooks-overlaps { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-muted); }

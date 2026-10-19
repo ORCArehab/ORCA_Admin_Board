@@ -42,6 +42,7 @@ export function ScheduleBoard({
   onEdit,
   onQuickAdd,
   onDrop,
+  readOnly = false,
 }: {
   data: ScheduleBoardData;
   weekStart: string;
@@ -51,6 +52,8 @@ export function ScheduleBoard({
   onEdit: (assignment: Assignment) => void;
   onQuickAdd: (prefill: NewEntryPrefill, anchor: HTMLElement) => void;
   onDrop: (assignment: Assignment, target: DropTarget, copy: boolean) => void;
+  /** The schedule comes from QuickBooks Time: entries open for viewing only; nothing is added, moved or copied here. */
+  readOnly?: boolean;
 }) {
   const [dragging, setDragging] = useState<Assignment | null>(null);
   const [over, setOver] = useState<{ key: string; copy: boolean } | null>(null);
@@ -82,11 +85,12 @@ export function ScheduleBoard({
       <li key={a.id}>
         <button
           type="button"
-          className={`chip chip-${a.type}${dragging?.id === a.id ? " is-dragging" : ""}`}
+          className={`chip chip-${a.type}${dragging?.id === a.id ? " is-dragging" : ""}${a.draft ? " is-draft" : ""}`}
           onClick={() => onEdit(a)}
-          title={`${title}\nDrag to move · Alt/Option-drag to copy`}
-          draggable
+          title={readOnly ? `${title}${a.draft ? "\nDraft in QuickBooks Time: providers don't see it yet" : ""}` : `${title}\nDrag to move · Alt/Option-drag to copy`}
+          draggable={!readOnly}
           onDragStart={(e) => {
+            if (readOnly) return;
             e.dataTransfer.setData(DRAG_TYPE, a.id);
             e.dataTransfer.effectAllowed = "copyMove";
             setDragging(a);
@@ -99,6 +103,7 @@ export function ScheduleBoard({
           <span className="chip-main">{main}</span>
           {sub && <span className="chip-sub">{sub}</span>}
           {a.notes && <span className="chip-note" aria-label="Has notes" />}
+          {a.draft && <span className="chip-draft">Draft</span>}
         </button>
       </li>
     );
@@ -114,7 +119,7 @@ export function ScheduleBoard({
         key={date}
         className={`board-cell${date === today ? " is-today" : ""}${entries.some((a) => ABSENT.has(a.type)) ? " is-away" : ""}${dropState}`}
         onDragOver={(e) => {
-          if (!dragging || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+          if (readOnly || !dragging || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
           e.preventDefault();
           // An invalid target still accepts the drop (outlined as a caution), so the reason can be shown.
           e.dataTransfer.dropEffect = e.altKey ? "copy" : "move";
@@ -133,7 +138,7 @@ export function ScheduleBoard({
         }}
       >
         {entries.length > 0 && <ul className="chip-list">{entries.map(chip)}</ul>}
-        {prefill && (
+        {prefill && !readOnly && (
           <button
             type="button"
             className="cell-add"
