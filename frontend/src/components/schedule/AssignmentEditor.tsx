@@ -88,6 +88,7 @@ export function AssignmentEditor({
   onClose,
   onSaved,
   onDeleted,
+  quickbooksTime = false,
 }: {
   data: ScheduleBoardData;
   existing: Assignment | null;
@@ -95,8 +96,11 @@ export function AssignmentEditor({
   onClose: () => void;
   onSaved: (result: SaveResult) => void;
   onDeleted: () => void;
+  /** QuickBooks Time is the schedule of record: saving writes the event there (a draft unless published). */
+  quickbooksTime?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [publish, setPublish] = useState(false);
   const [form, setForm] = useState<FormState>(() => initialForm(existing, prefill));
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
@@ -131,7 +135,7 @@ export function AssignmentEditor({
     }
     setBusy(true);
     try {
-      const input = { ...toInput(form), confirmWarnings };
+      const input = { ...toInput(form), confirmWarnings, ...(quickbooksTime && publish ? { publish: true } : {}) };
       const result = existing ? await updateAssignment(existing.id, input) : await createAssignment(input);
       onSaved(result);
     } catch (error) {
@@ -292,6 +296,22 @@ export function AssignmentEditor({
           <textarea id="ed-notes" rows={2} maxLength={500} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           <span className="field-hint">Operational notes only. No patient information.</span>
         </div>
+
+        {quickbooksTime && (form.type === "facility" || form.type === "coverage") && (
+          <div className="field qbt-publish">
+            {existing && !existing.draft ? (
+              <span className="field-hint">Saved straight to QuickBooks Time; it&apos;s published there, so the provider sees the change in the portal.</span>
+            ) : (
+              <>
+                <label className="check">
+                  <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
+                  Publish to providers now
+                </label>
+                <span className="field-hint">Saved straight to QuickBooks Time {publish ? "and published: the provider sees it in the portal." : "as a draft: providers don't see it until it's published (here or in QuickBooks Time)."}</span>
+              </>
+            )}
+          </div>
+        )}
 
         {feedback && (
           <div className={`editor-feedback${feedback.kind === "warnings" ? "" : " is-blocking"}`} role="alert">

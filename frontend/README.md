@@ -99,13 +99,15 @@ The provider schedule lives in the ORCA API (`schedule_assignments`, `/v1/schedu
 ## QuickBooks Time as the schedule of record
 
 When the ORCA API runs with `SCHEDULE_SOURCE=quickbooks_time`, the Schedule page mirrors
-QuickBooks Time: changes are made on QuickBooks Time's schedule calendar, and **Update from
-QuickBooks Time** pulls them (this week and the four after; the API also pulls nightly). The board
-is read-only (no adding, moving, copying or editing; an entry opens its details), entries still a
-draft in QuickBooks Time are tagged Draft, and a line says providers see the published events only.
+QuickBooks Time, and stays editable: adding, editing, moving, deleting and copying a week save
+straight to QuickBooks Time (new events are drafts unless **Publish to providers now** is ticked in
+the editor; **Publish N drafts** publishes the week's). Changes made in QuickBooks Time come in with
+**Update from QuickBooks Time** (this week and the four after; the API also pulls nightly). Entries
+still a draft are tagged Draft, and a line says providers see the published events only. If
+QuickBooks Time refuses a save (or a provider or facility isn't linked yet), nothing is saved.
 The Update dialog says what changed and lists QuickBooks Time users or jobcodes ORCA can't place,
 with a searchable picker (best guess preselected) to link each; Update again brings their events in.
-ORCA AI's schedule imports are review-only in this mode. (`components/schedule/PullDialog.tsx`,
+Applying an ORCA AI import adds the entries to QuickBooks Time as drafts. (`components/schedule/PullDialog.tsx`,
 `/api/quickbooks-time/status`, `/api/quickbooks-time/pull`.) Otherwise the page works as below.
 
 ## Send to QuickBooks Time

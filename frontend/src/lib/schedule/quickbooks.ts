@@ -99,6 +99,8 @@ export async function fetchQuickBooksStatus(): Promise<QuickBooksStatus | null> 
     return null;
   }
 }
+/** Publishes the week's drafts in QuickBooks Time, so providers see them in the portal. */
+export const publishDraftsInQuickBooks = (weekStart: string) => request<{ published: number; failed: { date: string; message: string }[] }>("/api/quickbooks-time/publish", "POST", { weekStart });
 /** Update: pulls QuickBooks Time's schedule from this week for five weeks. */
 export const pullFromQuickBooks = (weekStart: string) => request<PullResult>("/api/quickbooks-time/pull", "POST", { weekStart });
 

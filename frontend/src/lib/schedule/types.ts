@@ -82,4 +82,6 @@ export interface AssignmentInput {
   endTime: string | null;
   notes: string | null;
   confirmWarnings?: boolean;
+  /** QuickBooks Time as the schedule of record: publish the event (otherwise new events are drafts). */
+  publish?: boolean;
 }
