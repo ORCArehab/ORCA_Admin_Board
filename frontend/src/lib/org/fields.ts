@@ -100,6 +100,7 @@ export function facilitySections(isNew: boolean): SectionDef[] {
       title: "Contact",
       fields: [
         { name: "phone", label: "Phone", autoComplete: "off" },
+        { name: "ringcentralPhone", label: "RingCentral number", autoComplete: "off" },
         { name: "fax", label: "Fax", autoComplete: "off" },
         { name: "email", label: "Email", kind: "email", wide: true, autoComplete: "off" },
       ],

@@ -52,6 +52,7 @@ const facility = (overrides: Partial<Facility> = {}): Facility => ({
   county: null,
   address: { line1: null, line2: null, city: null, state: null, postalCode: null },
   phone: null,
+  ringcentralPhone: null,
   fax: null,
   email: null,
   operationalStatus: "active",
@@ -112,6 +113,10 @@ describe("facility profile", () => {
     expect(addressLines(facility().address)).toEqual([]);
     expect(addressLines({ line1: "1 Main St", line2: null, city: "Irvine", state: "CA", postalCode: "92618" })).toEqual(["1 Main St", "Irvine, CA 92618"]);
     expect(addressLines({ line1: null, line2: null, city: null, state: "CA", postalCode: null })).toEqual(["CA"]);
+  });
+
+  it("links a facility's RingCentral number", () => {
+    expect(facilityContact(facility({ ringcentralPhone: "(949) 555-0103" }))).toEqual([{ label: "RingCentral number", value: "(949) 555-0103", href: "tel:9495550103" }]);
   });
 
   it("links phone and email, hides empty contact fields", () => {
