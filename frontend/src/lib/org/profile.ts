@@ -142,6 +142,7 @@ export function addressLines(a: Facility["address"]): string[] {
 export function facilityContact(f: Facility): DetailItem[] {
   return items([
     present(f.phone) && { label: "Phone", value: f.phone, href: `tel:${f.phone.replace(/[^\d+]/g, "")}` },
+    present(f.ringcentralPhone) && { label: "RingCentral number", value: f.ringcentralPhone, href: `tel:${f.ringcentralPhone.replace(/[^\d+]/g, "")}` },
     { label: "Fax", value: f.fax ?? "" },
     present(f.email) && { label: "Email", value: f.email, href: `mailto:${f.email}` },
   ]);

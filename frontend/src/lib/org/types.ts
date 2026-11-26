@@ -111,6 +111,7 @@ export interface Facility {
   county: string | null;
   address: { line1: string | null; line2: string | null; city: string | null; state: string | null; postalCode: string | null };
   phone: string | null;
+  ringcentralPhone: string | null;
   fax: string | null;
   email: string | null;
   operationalStatus: string;

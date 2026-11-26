@@ -166,6 +166,15 @@ function Overview({ detail }: { detail: FacilityDetail }) {
               <span className="muted">Not recorded.</span>
             )}
           </InfoRow>
+          <InfoRow icon={<PhoneIcon />} label="RingCentral number">
+            {f.ringcentralPhone ? (
+              <a className="text-link info-primary" href={`tel:${f.ringcentralPhone.replace(/[^\d+]/g, "")}`}>
+                {f.ringcentralPhone}
+              </a>
+            ) : (
+              <span className="muted">Not recorded.</span>
+            )}
+          </InfoRow>
           {f.fax && (
             <InfoRow icon={<FaxIcon />} label="Fax">
               <span className="info-primary">{f.fax}</span>
